@@ -1,0 +1,309 @@
+@import "tailwindcss";
+
+/* ============================================================
+   Design tokens — TrailPlanner
+   ============================================================ */
+:root {
+  /* Brand palette */
+  --tp-forest:      #1a4731;
+  --tp-forest-mid:  #22603f;
+  --tp-forest-light:#2d8a58;
+  --tp-sage:        #86c5a0;
+  --tp-sage-light:  #c4e8d3;
+
+  --tp-slate:       #0f1923;
+  --tp-slate-mid:   #1c2d3a;
+  --tp-slate-light: #263d50;
+
+  --tp-amber:       #f59e0b;
+  --tp-amber-light: #fcd34d;
+  --tp-red:         #ef4444;
+  --tp-blue:        #3b82f6;
+  --tp-sky:         #38bdf8;
+
+  --tp-text:        #f0f4f8;
+  --tp-text-muted:  #94a3b8;
+  --tp-border:      rgba(255, 255, 255, 0.08);
+  --tp-glass:       rgba(255, 255, 255, 0.05);
+  --tp-glass-hover: rgba(255, 255, 255, 0.09);
+
+  /* Typography */
+  --font-display: var(--font-display, "Space Grotesk"), system-ui, sans-serif;
+  --font-body:    var(--font-body, "Inter"), system-ui, sans-serif;
+
+  /* Shadows */
+  --shadow-card: 0 4px 24px rgba(0, 0, 0, 0.3);
+  --shadow-glow: 0 0 40px rgba(45, 138, 88, 0.15);
+}
+
+/* ============================================================
+   Reset & base
+   ============================================================ */
+*, *::before, *::after { box-sizing: border-box; }
+
+html {
+  height: 100%;
+  scroll-behavior: smooth;
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  min-height: 100%;
+  background-color: var(--tp-slate);
+  color: var(--tp-text);
+  font-family: var(--font-body);
+  font-size: 16px;
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* ============================================================
+   Tailwind v4 theme extension
+   ============================================================ */
+@theme inline {
+  --color-tp-forest:      var(--tp-forest);
+  --color-tp-forest-mid:  var(--tp-forest-mid);
+  --color-tp-forest-light:var(--tp-forest-light);
+  --color-tp-sage:        var(--tp-sage);
+  --color-tp-sage-light:  var(--tp-sage-light);
+  --color-tp-slate:       var(--tp-slate);
+  --color-tp-slate-mid:   var(--tp-slate-mid);
+  --color-tp-slate-light: var(--tp-slate-light);
+  --color-tp-amber:       var(--tp-amber);
+  --color-tp-amber-light: var(--tp-amber-light);
+  --color-tp-red:         var(--tp-red);
+  --color-tp-blue:        var(--tp-blue);
+  --color-tp-sky:         var(--tp-sky);
+  --color-tp-text:        var(--tp-text);
+  --color-tp-text-muted:  var(--tp-text-muted);
+  --color-tp-border:      var(--tp-border);
+  --color-tp-glass:       var(--tp-glass);
+
+  --font-display: var(--font-display);
+  --font-body:    var(--font-body);
+}
+
+/* ============================================================
+   Glass card utility
+   ============================================================ */
+.tp-card {
+  background: var(--tp-glass);
+  border: 1px solid var(--tp-border);
+  border-radius: 1rem;
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  box-shadow: var(--shadow-card);
+}
+
+.tp-card-hover {
+  transition: background 0.2s, transform 0.2s, box-shadow 0.2s;
+}
+.tp-card-hover:hover {
+  background: var(--tp-glass-hover);
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-card), var(--shadow-glow);
+}
+
+/* ============================================================
+   Button system
+   ============================================================ */
+.tp-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  font-family: var(--font-body);
+  font-weight: 600;
+  font-size: 0.9rem;
+  padding: 0.625rem 1.25rem;
+  border-radius: 0.625rem;
+  border: none;
+  cursor: pointer;
+  transition: all 0.2s;
+  white-space: nowrap;
+  text-decoration: none;
+}
+
+.tp-btn:focus-visible {
+  outline: 2px solid var(--tp-sage);
+  outline-offset: 2px;
+}
+
+.tp-btn-primary {
+  background: linear-gradient(135deg, var(--tp-forest-mid), var(--tp-forest-light));
+  color: #fff;
+  box-shadow: 0 4px 14px rgba(45, 138, 88, 0.35);
+}
+.tp-btn-primary:hover {
+  background: linear-gradient(135deg, var(--tp-forest-light), var(--tp-sage));
+  box-shadow: 0 4px 20px rgba(45, 138, 88, 0.5);
+  transform: translateY(-1px);
+}
+
+.tp-btn-ghost {
+  background: var(--tp-glass);
+  color: var(--tp-text);
+  border: 1px solid var(--tp-border);
+}
+.tp-btn-ghost:hover {
+  background: var(--tp-glass-hover);
+}
+
+.tp-btn-danger {
+  background: rgba(239, 68, 68, 0.15);
+  color: var(--tp-red);
+  border: 1px solid rgba(239, 68, 68, 0.25);
+}
+.tp-btn-danger:hover {
+  background: rgba(239, 68, 68, 0.25);
+}
+
+/* ============================================================
+   Typography helpers
+   ============================================================ */
+.tp-heading {
+  font-family: var(--font-display);
+  font-weight: 700;
+  line-height: 1.2;
+  letter-spacing: -0.02em;
+}
+
+.tp-label {
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--tp-text-muted);
+}
+
+/* ============================================================
+   Input system
+   ============================================================ */
+.tp-input {
+  width: 100%;
+  background: var(--tp-glass);
+  border: 1px solid var(--tp-border);
+  border-radius: 0.625rem;
+  color: var(--tp-text);
+  font-family: var(--font-body);
+  font-size: 0.9rem;
+  padding: 0.625rem 0.875rem;
+  transition: border-color 0.2s, box-shadow 0.2s;
+  outline: none;
+}
+.tp-input::placeholder { color: var(--tp-text-muted); }
+.tp-input:focus {
+  border-color: var(--tp-forest-light);
+  box-shadow: 0 0 0 3px rgba(45, 138, 88, 0.2);
+}
+
+/* ============================================================
+   Badge / pill
+   ============================================================ */
+.tp-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  padding: 0.2rem 0.6rem;
+  border-radius: 999px;
+}
+.tp-badge-green {
+  background: rgba(45, 138, 88, 0.2);
+  color: var(--tp-sage);
+  border: 1px solid rgba(45, 138, 88, 0.3);
+}
+.tp-badge-amber {
+  background: rgba(245, 158, 11, 0.15);
+  color: var(--tp-amber);
+  border: 1px solid rgba(245, 158, 11, 0.3);
+}
+.tp-badge-blue {
+  background: rgba(59, 130, 246, 0.15);
+  color: var(--tp-sky);
+  border: 1px solid rgba(59, 130, 246, 0.25);
+}
+
+/* ============================================================
+   Dividers & layout
+   ============================================================ */
+.tp-divider {
+  height: 1px;
+  background: var(--tp-border);
+  margin: 1.5rem 0;
+}
+
+/* Gradient overlay (used on hero) */
+.tp-gradient-bg {
+  background:
+    radial-gradient(ellipse at 20% 50%, rgba(34, 96, 63, 0.25) 0%, transparent 60%),
+    radial-gradient(ellipse at 80% 20%, rgba(45, 138, 88, 0.12) 0%, transparent 50%),
+    var(--tp-slate);
+}
+
+/* ============================================================
+   Animated upload zone
+   ============================================================ */
+.tp-dropzone {
+  border: 2px dashed rgba(45, 138, 88, 0.4);
+  border-radius: 1.25rem;
+  transition: border-color 0.2s, background 0.2s;
+  cursor: pointer;
+}
+.tp-dropzone:hover,
+.tp-dropzone.drag-over {
+  border-color: var(--tp-forest-light);
+  background: rgba(45, 138, 88, 0.06);
+}
+
+/* ============================================================
+   Scrollbar (webkit)
+   ============================================================ */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb {
+  background: var(--tp-slate-light);
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover { background: var(--tp-forest-mid); }
+
+/* ============================================================
+   Print styles (export PDF)
+   ============================================================ */
+@media print {
+  body {
+    background: #fff;
+    color: #111;
+    font-size: 12pt;
+  }
+  .no-print { display: none !important; }
+  .tp-card {
+    background: #fff;
+    border: 1px solid #ddd;
+    box-shadow: none;
+  }
+  @page {
+    margin: 20mm;
+    size: A4;
+  }
+}
+
+/* ============================================================
+   Animations
+   ============================================================ */
+@keyframes fadeInUp {
+  from { opacity: 0; transform: translateY(16px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+@keyframes pulse-glow {
+  0%, 100% { box-shadow: 0 0 20px rgba(45, 138, 88, 0.2); }
+  50%       { box-shadow: 0 0 40px rgba(45, 138, 88, 0.4); }
+}
+.animate-fade-in-up {
+  animation: fadeInUp 0.5s ease both;
+}
+.animate-pulse-glow {
+  animation: pulse-glow 3s ease-in-out infinite;
+}
