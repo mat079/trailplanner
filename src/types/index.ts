@@ -30,6 +30,7 @@ export interface TripMetadata {
     min_lon: number;
     max_lon: number;
   };
+  pace_params?: PaceParams;      // derniers paramètres de rythme utilisés (étape 2)
 }
 
 // ── GPX points ────────────────────────────────────────────────────────────────
@@ -71,6 +72,16 @@ export interface PaceParams {
   speed_kmh: number;             // vitesse à plat (km/h)
   elev_coeff_min_per_100m: number; // min par 100m D+
   hours_per_day: number;         // budget horaire journalier
+}
+
+/** Jour calculé, enrichi des stats dérivées pour l'affichage (non persistées telles quelles). */
+export interface DayWithStats extends TripDay {
+  distance_m: number;
+  elev_gain_m: number;
+  elev_loss_m: number;
+  duration_h: number;
+  start_dist_m: number;          // distance cumulée du point de départ (pour placer les marqueurs)
+  end_dist_m: number;            // distance cumulée du point de fin
 }
 
 // ── Waypoints ─────────────────────────────────────────────────────────────────

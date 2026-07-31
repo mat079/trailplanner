@@ -4,7 +4,7 @@
  * (permet de tester l'application en dev si le conteneur Postgres n'est pas lancé).
  */
 import { Pool } from "pg";
-import type { Trip, GpxPoint, Waypoint, TripDay, Poi, ChecklistItem } from "@/types";
+import type { Trip, GpxPoint, Waypoint, TripDay, Poi, ChecklistItem, PaceParams } from "@/types";
 
 declare global {
   var _pgPool: Pool | undefined;
@@ -194,6 +194,134 @@ export async function purgeOldTrips(): Promise<number> {
 
   console.log(`[Purge] ${deletedCount} trip(s) inactif(s) depuis > 90 jours purgé(s).`);
   return deletedCount;
+}
+
+/**
+ * Remplace intégralement le découpage en jours d'une sortie (transaction).
+ */
+export async function saveDays(tripId: string, days: TripDay[]): Promise<TripDay[]> {
+  try {
+    const client = await pool.connect();
+    try {
+      await client.query("BEGIN");
+      await client.query(`DELETE FROM trip_days WHERE trip_id = $1`, [tripId]);
+      const saved: TripDay[] = [];
+      for (const d of days) {
+        const res = await client.query<TripDay>(
+          `INSERT INTO trip_days (trip_id, day_index, start_point_index, end_point_index, label, bivouac_lat, bivouac_lon, bivouac_ele, date)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+           RETURNING *`,
+          [
+            tripId,
+            d.day_index,
+            d.start_point_index,
+            d.end_point_index,
+            d.label,
+            d.bivouac_lat,
+            d.bivouac_lon,
+            d.bivouac_ele,
+            d.date,
+          ]
+        );
+        saved.push(res.rows[0]);
+      }
+      await client.query("COMMIT");
+      return saved;
+    } catch (err) {
+      await client.query("ROLLBACK");
+      throw err;
+    } finally {
+      client.release();
+    }
+  } catch (err) {
+    if (!isDev()) {
+      throw err;
+    }
+    console.warn("[DB] PostgreSQL non accessible, sauvegarde des jours en mémoire locale.", (err as Error).message);
+    memoryStore.days.set(tripId, days);
+    return days;
+  }
+}
+
+/**
+ * Récupère le découpage en jours d'une sortie (ordonné).
+ */
+export async function getDays(tripId: string): Promise<TripDay[]> {
+  try {
+    const res = await pool.query<TripDay>(
+      `SELECT * FROM trip_days WHERE trip_id = $1 ORDER BY day_index ASC`,
+      [tripId]
+    );
+    return res.rows;
+  } catch (err) {
+    if (!isDev()) {
+      throw err;
+    }
+    return memoryStore.days.get(tripId) ?? [];
+  }
+}
+
+/**
+ * Met à jour un seul jour existant (ex. ajustement manuel d'un point de coupure).
+ */
+export async function updateDay(tripId: string, day: TripDay): Promise<TripDay> {
+  try {
+    const res = await pool.query<TripDay>(
+      `UPDATE trip_days
+       SET start_point_index = $3, end_point_index = $4, label = $5,
+           bivouac_lat = $6, bivouac_lon = $7, bivouac_ele = $8, date = $9
+       WHERE trip_id = $1 AND day_index = $2
+       RETURNING *`,
+      [
+        tripId,
+        day.day_index,
+        day.start_point_index,
+        day.end_point_index,
+        day.label,
+        day.bivouac_lat,
+        day.bivouac_lon,
+        day.bivouac_ele,
+        day.date,
+      ]
+    );
+    if (res.rows.length === 0) {
+      throw new Error("Jour introuvable.");
+    }
+    return res.rows[0];
+  } catch (err) {
+    if (!isDev()) {
+      throw err;
+    }
+    const days = memoryStore.days.get(tripId) ?? [];
+    const idx = days.findIndex((d) => d.day_index === day.day_index);
+    if (idx === -1) {
+      throw new Error("Jour introuvable (mode mémoire).");
+    }
+    days[idx] = { ...days[idx], ...day };
+    memoryStore.days.set(tripId, days);
+    return days[idx];
+  }
+}
+
+/**
+ * Enregistre les derniers paramètres de rythme utilisés sur le metadata JSONB du trip
+ * (permet de recalculer les durées après un rechargement de page).
+ */
+export async function updateTripPaceParams(tripId: string, params: PaceParams): Promise<void> {
+  try {
+    await pool.query(
+      `UPDATE trips SET metadata = metadata || $2::jsonb WHERE id = $1`,
+      [tripId, JSON.stringify({ pace_params: params })]
+    );
+  } catch (err) {
+    if (!isDev()) {
+      throw err;
+    }
+    const trip = memoryStore.trips.get(tripId);
+    if (trip) {
+      trip.metadata = { ...trip.metadata, pace_params: params };
+    }
+  }
 }
 
 /**
