@@ -34,6 +34,34 @@
   /* Shadows */
   --shadow-card: 0 4px 24px rgba(0, 0, 0, 0.3);
   --shadow-glow: 0 0 40px rgba(45, 138, 88, 0.15);
+
+  /* ============================================================
+     shadcn/ui semantic theme — consomme les tokens ci-dessus.
+     Tout nouveau composant shadcn (Slider, Dialog, Select, Checkbox…)
+     doit utiliser ces variables (bg-primary, text-foreground, etc.)
+     plutôt que des valeurs arbitraires, pour hériter du thème
+     automatiquement.
+     ============================================================ */
+  --background:            var(--tp-slate);
+  --foreground:             var(--tp-text);
+  --card:                   var(--tp-glass);
+  --card-foreground:        var(--tp-text);
+  --popover:                var(--tp-slate-mid);
+  --popover-foreground:     var(--tp-text);
+  --primary:                var(--tp-forest-light);
+  --primary-foreground:     #ffffff;
+  --secondary:              var(--tp-forest-mid);
+  --secondary-foreground:   #ffffff;
+  --muted:                  var(--tp-glass);
+  --muted-foreground:       var(--tp-text-muted);
+  --accent:                 var(--tp-sage);
+  --accent-foreground:      var(--tp-forest);
+  --destructive:            var(--tp-red);
+  --destructive-foreground: #ffffff;
+  --border:                 var(--tp-border);
+  --input:                  var(--tp-border);
+  --ring:                   var(--tp-sage);
+  --radius:                 1rem;
 }
 
 /* ============================================================
@@ -82,6 +110,32 @@ body {
 
   --font-display: var(--font-display);
   --font-body:    var(--font-body);
+
+  /* shadcn/ui semantic theme exposure (Tailwind v4 CSS-first) */
+  --color-background:            var(--background);
+  --color-foreground:            var(--foreground);
+  --color-card:                  var(--card);
+  --color-card-foreground:       var(--card-foreground);
+  --color-popover:               var(--popover);
+  --color-popover-foreground:    var(--popover-foreground);
+  --color-primary:               var(--primary);
+  --color-primary-foreground:    var(--primary-foreground);
+  --color-secondary:             var(--secondary);
+  --color-secondary-foreground:  var(--secondary-foreground);
+  --color-muted:                 var(--muted);
+  --color-muted-foreground:      var(--muted-foreground);
+  --color-accent:                var(--accent);
+  --color-accent-foreground:     var(--accent-foreground);
+  --color-destructive:           var(--destructive);
+  --color-destructive-foreground:var(--destructive-foreground);
+  --color-border:                var(--border);
+  --color-input:                 var(--input);
+  --color-ring:                  var(--ring);
+
+  --radius-sm: calc(var(--radius) - 0.5rem);
+  --radius-md: calc(var(--radius) - 0.25rem);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 0.25rem);
 }
 
 /* ============================================================

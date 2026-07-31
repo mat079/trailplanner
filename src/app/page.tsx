@@ -3,8 +3,10 @@
 import { useRef, useState, useCallback, DragEvent } from "react";
 import { useRouter } from "next/navigation";
 import { fr } from "@/i18n/fr";
+import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
 
-// ── Icônes inline (pas de dépendance lucide-react pour l'instant) ─────────────
+// ── Icônes inline ─────────────────────────────────────────────────────────────
 function IconMountain() {
   return (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} className="w-6 h-6">
@@ -52,7 +54,7 @@ function IconShield() {
   );
 }
 
-// ── Composant feature card ─────────────────────────────────────────────────────
+// ── Composant feature card avec shadcn/ui Card ───────────────────────────────
 function FeatureCard({
   icon,
   title,
@@ -65,8 +67,8 @@ function FeatureCard({
   delay?: number;
 }) {
   return (
-    <div
-      className="tp-card tp-card-hover p-5"
+    <Card
+      className="tp-card-hover p-5"
       style={{ animationDelay: `${delay}ms` }}
     >
       <div className="flex items-start gap-3">
@@ -85,7 +87,7 @@ function FeatureCard({
           </div>
         </div>
       </div>
-    </div>
+    </Card>
   );
 }
 
@@ -101,7 +103,6 @@ export default function HomePage() {
     async (file: File) => {
       setError(null);
 
-      // Validation taille côté client (20 Mo)
       if (file.size > 20 * 1024 * 1024) {
         setError(fr.errors.gpxTooLarge);
         return;
@@ -116,10 +117,8 @@ export default function HomePage() {
         const formData = new FormData();
         formData.append("file", file);
 
-        // Récupérer ou créer le session_id
         let sessionId = localStorage.getItem("tp_session_id");
         if (!sessionId) {
-          // Générer un UUID v4 côté client si non existant
           sessionId = crypto.randomUUID();
           localStorage.setItem("tp_session_id", sessionId);
         }
@@ -248,14 +247,15 @@ export default function HomePage() {
                     {fr.landing.uploadHint}
                   </p>
                 </div>
-                <button
+                <Button
                   id="upload-btn"
-                  className="tp-btn tp-btn-primary mt-2"
+                  variant="default"
+                  className="mt-2"
                   onClick={(e) => { e.stopPropagation(); fileInputRef.current?.click(); }}
                   type="button"
                 >
                   {fr.landing.newTripBtn}
-                </button>
+                </Button>
               </>
             )}
           </div>

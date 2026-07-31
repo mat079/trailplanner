@@ -197,9 +197,11 @@ export async function POST(req: NextRequest): Promise<NextResponse<ApiResponse<P
     });
   } catch (err) {
     console.error("[api/gpx] Error:", err);
+    const isDbError = err instanceof Error && (err.message.includes("connect") || err.message.includes("DATABASE_URL") || "code" in err);
     return NextResponse.json(
-      { ok: false, error: "Erreur lors du traitement du fichier GPX." },
-      { status: 500 }
+      { ok: false, error: isDbError ? "Base de données non disponible." : "Erreur lors du traitement du fichier GPX." },
+      { status: isDbError ? 503 : 500 }
     );
   }
 }
+
