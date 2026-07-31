@@ -325,6 +325,92 @@ export async function updateTripPaceParams(tripId: string, params: PaceParams): 
 }
 
 /**
+ * Crée un point d'étape (bivouac / ravitaillement / checkpoint), déjà snappé sur la trace.
+ */
+export async function saveWaypoint(
+  tripId: string,
+  data: Omit<Waypoint, "id" | "trip_id" | "created_at">
+): Promise<Waypoint> {
+  try {
+    const res = await pool.query<Waypoint>(
+      `INSERT INTO waypoints (trip_id, type, label, lat, lon, ele, point_index, dist_cumul, day_index)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+       RETURNING *`,
+      [
+        tripId,
+        data.type,
+        data.label,
+        data.lat,
+        data.lon,
+        data.ele,
+        data.point_index,
+        data.dist_cumul,
+        data.day_index,
+      ]
+    );
+    return res.rows[0];
+  } catch (err) {
+    if (!isDev()) {
+      throw err;
+    }
+    const waypoint: Waypoint = {
+      id: Date.now(),
+      trip_id: tripId,
+      created_at: new Date().toISOString(),
+      ...data,
+    };
+    const existing = memoryStore.waypoints.get(tripId) ?? [];
+    existing.push(waypoint);
+    memoryStore.waypoints.set(tripId, existing);
+    return waypoint;
+  }
+}
+
+/**
+ * Liste les points d'étape d'une sortie, ordonnés le long de la trace.
+ */
+export async function getWaypoints(tripId: string): Promise<Waypoint[]> {
+  try {
+    const res = await pool.query<Waypoint>(
+      `SELECT * FROM waypoints WHERE trip_id = $1 ORDER BY dist_cumul ASC NULLS LAST`,
+      [tripId]
+    );
+    return res.rows;
+  } catch (err) {
+    if (!isDev()) {
+      throw err;
+    }
+    const waypoints = memoryStore.waypoints.get(tripId) ?? [];
+    return [...waypoints].sort((a, b) => (a.dist_cumul ?? 0) - (b.dist_cumul ?? 0));
+  }
+}
+
+/**
+ * Supprime un point d'étape. Retourne true si une ligne a été supprimée.
+ */
+export async function deleteWaypoint(tripId: string, waypointId: number): Promise<boolean> {
+  try {
+    const res = await pool.query(`DELETE FROM waypoints WHERE id = $1 AND trip_id = $2`, [
+      waypointId,
+      tripId,
+    ]);
+    return (res.rowCount ?? 0) > 0;
+  } catch (err) {
+    if (!isDev()) {
+      throw err;
+    }
+    const waypoints = memoryStore.waypoints.get(tripId) ?? [];
+    const nextLength = waypoints.filter((w) => w.id !== waypointId).length;
+    const changed = nextLength !== waypoints.length;
+    memoryStore.waypoints.set(
+      tripId,
+      waypoints.filter((w) => w.id !== waypointId)
+    );
+    return changed;
+  }
+}
+
+/**
  * Initialise le scheduler in-process pour la purge automatique (24h)
  * avec exécution immédiate au démarrage.
  */

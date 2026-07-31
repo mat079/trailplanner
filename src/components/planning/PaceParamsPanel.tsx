@@ -13,7 +13,6 @@ export default function PaceParamsPanel() {
   const setPaceParams = usePlanStore((s) => s.setPaceParams);
   const computeDays = usePlanStore((s) => s.computeDays);
   const computing = usePlanStore((s) => s.computing);
-  const error = usePlanStore((s) => s.error);
 
   return (
     <div className="tp-card p-4">
@@ -63,12 +62,6 @@ export default function PaceParamsPanel() {
           />
         </label>
       </div>
-
-      {error && (
-        <p className="mt-3 text-sm" style={{ color: "var(--tp-red)" }} role="alert">
-          {error}
-        </p>
-      )}
 
       <Button className="mt-4 w-full sm:w-auto" onClick={() => computeDays()} disabled={computing}>
         {computing ? fr.planning.computing : fr.planning.compute}

@@ -21,6 +21,16 @@ export function dayColor(dayIndex: number): string {
   return DAY_COLORS[dayIndex % DAY_COLORS.length];
 }
 
+const WAYPOINT_STYLE: Record<"bivouac" | "ravitaillement" | "checkpoint", { icon: string; color: string }> = {
+  bivouac: { icon: "⛺", color: "#38bdf8" },
+  ravitaillement: { icon: "🛒", color: "#f59e0b" },
+  checkpoint: { icon: "📍", color: "#ef4444" },
+};
+
+export function waypointStyle(type: "bivouac" | "ravitaillement" | "checkpoint") {
+  return WAYPOINT_STYLE[type];
+}
+
 /** Trouve l'index du point le plus proche d'une distance cumulée donnée (recherche dichotomique). */
 export function nearestIndexByDistance<T extends { dist_cumul: number }>(
   points: T[],

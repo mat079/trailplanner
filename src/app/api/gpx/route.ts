@@ -16,6 +16,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { XMLParser } from "fast-xml-parser";
 import { saveTrip } from "@/lib/db";
 import { douglasPeucker } from "@/modules/gpx/simplify";
+import { haversineM } from "@/lib/geo";
 import type { GpxPoint, TripMetadata, ApiResponse, Trip } from "@/types";
 
 const MAX_SIZE_BYTES = 20 * 1024 * 1024; // 20 Mo
@@ -30,18 +31,6 @@ interface RawGpxTrkpt {
   "@_lat": number;
   "@_lon": number;
   ele?: number;
-}
-
-function haversineM(lat1: number, lon1: number, lat2: number, lon2: number): number {
-  const R = 6_371_000;
-  const dLat = ((lat2 - lat1) * Math.PI) / 180;
-  const dLon = ((lon2 - lon1) * Math.PI) / 180;
-  const a =
-    Math.sin(dLat / 2) ** 2 +
-    Math.cos((lat1 * Math.PI) / 180) *
-    Math.cos((lat2 * Math.PI) / 180) *
-    Math.sin(dLon / 2) ** 2;
-  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 }
 
 function parseGpxPoints(xmlText: string): GpxPoint[] {

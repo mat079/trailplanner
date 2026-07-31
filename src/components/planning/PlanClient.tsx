@@ -2,7 +2,7 @@
 
 /**
  * components/planning/PlanClient.tsx
- * Orchestration client de la page /plan/[id] : carte, profil, paramètres, jours.
+ * Orchestration client de la page /plan/[id] : carte, profil, paramètres, jours, points d'étape.
  */
 import { useEffect } from "react";
 import { usePlanStore } from "@/lib/planStore";
@@ -10,6 +10,8 @@ import TrailMap from "@/components/map/TrailMap";
 import ElevationProfile from "@/components/elevation/ElevationProfile";
 import PaceParamsPanel from "@/components/planning/PaceParamsPanel";
 import DayList from "@/components/planning/DayList";
+import WaypointToolbar from "@/components/planning/WaypointToolbar";
+import WaypointList from "@/components/planning/WaypointList";
 import { fr } from "@/i18n/fr";
 import type { GpxPointSimplified, Trip } from "@/types";
 
@@ -24,6 +26,10 @@ export default function PlanClient({ trip, simplifiedPoints }: PlanClientProps) 
   const hoveredDayIndex = usePlanStore((s) => s.hoveredDayIndex);
   const setHoveredDay = usePlanStore((s) => s.setHoveredDay);
   const adjustBoundary = usePlanStore((s) => s.adjustBoundary);
+  const waypoints = usePlanStore((s) => s.waypoints);
+  const placingType = usePlanStore((s) => s.placingType);
+  const addWaypointAt = usePlanStore((s) => s.addWaypointAt);
+  const error = usePlanStore((s) => s.error);
 
   useEffect(() => {
     init(trip.id, trip, simplifiedPoints);
@@ -45,10 +51,24 @@ export default function PlanClient({ trip, simplifiedPoints }: PlanClientProps) 
 
       <main className="flex-1 px-4 sm:px-6 py-6 max-w-6xl w-full mx-auto flex flex-col gap-4">
         <PaceParamsPanel />
+        <WaypointToolbar />
+
+        {error && (
+          <p className="text-sm px-1" style={{ color: "var(--tp-red)" }} role="alert">
+            {error}
+          </p>
+        )}
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
           <div style={{ height: 360 }}>
-            <TrailMap points={simplifiedPoints} days={days} hoveredDayIndex={hoveredDayIndex} />
+            <TrailMap
+              points={simplifiedPoints}
+              days={days}
+              hoveredDayIndex={hoveredDayIndex}
+              waypoints={waypoints}
+              placingType={placingType}
+              onMapClick={addWaypointAt}
+            />
           </div>
           <ElevationProfile
             points={simplifiedPoints}
@@ -59,6 +79,7 @@ export default function PlanClient({ trip, simplifiedPoints }: PlanClientProps) 
           />
         </div>
 
+        <WaypointList />
         <DayList />
       </main>
 
