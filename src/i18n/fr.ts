@@ -136,6 +136,17 @@ export const fr = {
     cloudCover:      "Nébulosité",
     windUnit:        "km/h",
     rainUnit:        "mm",
+    setDate:         "Date de départ",
+    condition: {
+      clear:         "Ciel dégagé",
+      partly_cloudy: "Partiellement nuageux",
+      cloudy:        "Couvert",
+      rain:          "Pluie",
+      heavy_rain:    "Pluie forte",
+      snow:          "Neige",
+      storm:         "Orage",
+      fog:           "Brouillard",
+    },
     attribution:     "Météo fournie par Open-Meteo (CC BY 4.0)",
   },
 

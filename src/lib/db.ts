@@ -4,6 +4,7 @@
  * (permet de tester l'application en dev si le conteneur Postgres n'est pas lancé).
  */
 import { Pool } from "pg";
+import { computeDayDate } from "@/modules/planning/dayBuilder";
 import type { Trip, GpxPoint, Waypoint, TripDay, Poi, ChecklistItem, PaceParams } from "@/types";
 
 declare global {
@@ -142,6 +143,57 @@ export async function getTrip(id: string): Promise<Trip | null> {
       throw err;
     }
     return memoryStore.trips.get(id) ?? null;
+  }
+}
+
+/**
+ * Met à jour la date de départ d'une sortie (nécessaire pour la météo et les
+ * dates par jour) et répercute le changement sur trip_days.date pour les
+ * jours déjà calculés, afin que les deux restent cohérents sans nécessiter un
+ * recalcul complet du découpage. `null` efface la date (et celles des jours).
+ */
+export async function updateTripStartDate(id: string, startDate: string | null): Promise<Trip | null> {
+  try {
+    const client = await pool.connect();
+    try {
+      await client.query("BEGIN");
+      const res = await client.query<Trip>(
+        `UPDATE trips SET start_date = $2 WHERE id = $1 RETURNING *`,
+        [id, startDate]
+      );
+      if (res.rows.length === 0) {
+        await client.query("ROLLBACK");
+        return null;
+      }
+      await client.query(
+        `UPDATE trip_days
+         SET date = CASE WHEN $2::date IS NULL THEN NULL ELSE $2::date + (day_index * INTERVAL '1 day') END
+         WHERE trip_id = $1`,
+        [id, startDate]
+      );
+      await client.query("COMMIT");
+      return res.rows[0];
+    } catch (err) {
+      await client.query("ROLLBACK");
+      throw err;
+    } finally {
+      client.release();
+    }
+  } catch (err) {
+    if (!isDev()) {
+      throw err;
+    }
+    const trip = memoryStore.trips.get(id);
+    if (!trip) return null;
+    trip.start_date = startDate;
+    const days = memoryStore.days.get(id);
+    if (days) {
+      memoryStore.days.set(
+        id,
+        days.map((d) => ({ ...d, date: computeDayDate(startDate, d.day_index) }))
+      );
+    }
+    return trip;
   }
 }
 
@@ -388,25 +440,61 @@ export async function getWaypoints(tripId: string): Promise<Waypoint[]> {
 /**
  * Supprime un point d'étape. Retourne true si une ligne a été supprimée.
  */
-export async function deleteWaypoint(tripId: string, waypointId: number): Promise<boolean> {
+export async function deleteWaypoint(tripId: string, waypointId: number): Promise<Waypoint | null> {
   try {
-    const res = await pool.query(`DELETE FROM waypoints WHERE id = $1 AND trip_id = $2`, [
-      waypointId,
-      tripId,
-    ]);
-    return (res.rowCount ?? 0) > 0;
+    const res = await pool.query<Waypoint>(
+      `DELETE FROM waypoints WHERE id = $1 AND trip_id = $2 RETURNING *`,
+      [waypointId, tripId]
+    );
+    return res.rows[0] ?? null;
   } catch (err) {
     if (!isDev()) {
       throw err;
     }
     const waypoints = memoryStore.waypoints.get(tripId) ?? [];
-    const nextLength = waypoints.filter((w) => w.id !== waypointId).length;
-    const changed = nextLength !== waypoints.length;
+    const found = waypoints.find((w) => w.id === waypointId) ?? null;
     memoryStore.waypoints.set(
       tripId,
       waypoints.filter((w) => w.id !== waypointId)
     );
-    return changed;
+    return found;
+  }
+}
+
+/**
+ * Met à jour (ou efface) la localisation du bivouac d'un jour — utilisé par
+ * la création/suppression d'un waypoint de type "bivouac" pour que la météo
+ * (étape 5) dispose d'une localisation précise sans dupliquer la logique de
+ * placement.
+ */
+export async function setDayBivouac(
+  tripId: string,
+  dayIndex: number,
+  bivouac: { lat: number; lon: number; ele: number | null } | null
+): Promise<TripDay | null> {
+  try {
+    const res = await pool.query<TripDay>(
+      `UPDATE trip_days SET bivouac_lat = $3, bivouac_lon = $4, bivouac_ele = $5
+       WHERE trip_id = $1 AND day_index = $2
+       RETURNING *`,
+      [tripId, dayIndex, bivouac?.lat ?? null, bivouac?.lon ?? null, bivouac?.ele ?? null]
+    );
+    return res.rows[0] ?? null;
+  } catch (err) {
+    if (!isDev()) {
+      throw err;
+    }
+    const days = memoryStore.days.get(tripId) ?? [];
+    const idx = days.findIndex((d) => d.day_index === dayIndex);
+    if (idx === -1) return null;
+    days[idx] = {
+      ...days[idx],
+      bivouac_lat: bivouac?.lat ?? null,
+      bivouac_lon: bivouac?.lon ?? null,
+      bivouac_ele: bivouac?.ele ?? null,
+    };
+    memoryStore.days.set(tripId, days);
+    return days[idx];
   }
 }
 

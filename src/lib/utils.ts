@@ -42,6 +42,26 @@ export function poiStyle(type: "bakery" | "supermarket" | "grocery" | "water") {
   return POI_STYLE[type];
 }
 
+const WEATHER_ICON: Record<
+  "clear" | "partly_cloudy" | "cloudy" | "rain" | "heavy_rain" | "snow" | "storm" | "fog",
+  string
+> = {
+  clear: "☀️",
+  partly_cloudy: "⛅",
+  cloudy: "☁️",
+  rain: "🌧️",
+  heavy_rain: "🌧️",
+  snow: "❄️",
+  storm: "⛈️",
+  fog: "🌫️",
+};
+
+export function weatherIcon(
+  condition: "clear" | "partly_cloudy" | "cloudy" | "rain" | "heavy_rain" | "snow" | "storm" | "fog"
+): string {
+  return WEATHER_ICON[condition];
+}
+
 /** Trouve l'index du point le plus proche d'une distance cumulée donnée (recherche dichotomique). */
 export function nearestIndexByDistance<T extends { dist_cumul: number }>(
   points: T[],

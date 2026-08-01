@@ -6,7 +6,7 @@
  * GET  : liste les points d'étape, ordonnés le long de la trace.
  */
 import { NextRequest, NextResponse } from "next/server";
-import { getTrip, getTripPoints, getDays, saveWaypoint, getWaypoints } from "@/lib/db";
+import { getTrip, getTripPoints, getDays, saveWaypoint, getWaypoints, setDayBivouac } from "@/lib/db";
 import { snapToTrace, resolveDayIndex } from "@/modules/gpx/snap";
 import type { ApiResponse, Waypoint, WaypointType } from "@/types";
 
@@ -69,6 +69,16 @@ export async function POST(
       dist_cumul: snapped.dist_cumul,
       day_index: dayIndex,
     });
+
+    if (type === "bivouac" && dayIndex !== null) {
+      // Localisation la plus récente pour la météo (étape 5) — best-effort,
+      // ne doit pas faire échouer la création du waypoint si ça rate.
+      try {
+        await setDayBivouac(id, dayIndex, { lat: snapped.lat, lon: snapped.lon, ele: snapped.ele });
+      } catch (bivouacErr) {
+        console.warn("[api/trips/[id]/waypoints][POST] Échec mise à jour bivouac_* du jour:", (bivouacErr as Error).message);
+      }
+    }
 
     return NextResponse.json({ ok: true, data: { waypoint } });
   } catch (err) {

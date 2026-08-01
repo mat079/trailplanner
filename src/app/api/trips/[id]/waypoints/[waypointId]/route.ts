@@ -3,7 +3,7 @@
  * Suppression d'un point d'étape.
  */
 import { NextRequest, NextResponse } from "next/server";
-import { deleteWaypoint } from "@/lib/db";
+import { deleteWaypoint, setDayBivouac } from "@/lib/db";
 import type { ApiResponse } from "@/types";
 
 export async function DELETE(
@@ -20,6 +20,17 @@ export async function DELETE(
     const deleted = await deleteWaypoint(id, numericId);
     if (!deleted) {
       return NextResponse.json({ ok: false, error: "Point d'étape introuvable." }, { status: 404 });
+    }
+
+    if (deleted.type === "bivouac" && deleted.day_index !== null) {
+      try {
+        await setDayBivouac(id, deleted.day_index, null);
+      } catch (bivouacErr) {
+        console.warn(
+          "[api/trips/[id]/waypoints/[waypointId]][DELETE] Échec effacement bivouac_* du jour:",
+          (bivouacErr as Error).message
+        );
+      }
     }
 
     return NextResponse.json({ ok: true, data: { deleted: true } });

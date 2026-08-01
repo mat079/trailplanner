@@ -4,7 +4,7 @@
  */
 import { create } from "zustand";
 import { DEFAULT_PACE_PARAMS } from "@/modules/planning/paceModel";
-import type { ApiResponse, DayWithStats, GpxPointSimplified, PaceParams, Poi, Trip, Waypoint, WaypointType } from "@/types";
+import type { ApiResponse, DayWeather, DayWithStats, GpxPointSimplified, PaceParams, Poi, Trip, Waypoint, WaypointType } from "@/types";
 
 interface PlanState {
   tripId: string | null;
@@ -22,6 +22,10 @@ interface PlanState {
   poiLoading: Record<number, boolean>;
   poiStale: Record<number, boolean>;
   poiError: Record<number, string | null>;
+  weatherByDay: Record<number, DayWeather>;
+  weatherLoading: Record<number, boolean>;
+  weatherError: Record<number, string | null>;
+  savingStartDate: boolean;
 
   init: (tripId: string, trip: Trip, simplifiedPoints: GpxPointSimplified[]) => void;
   setPaceParams: (p: Partial<PaceParams>) => void;
@@ -35,6 +39,9 @@ interface PlanState {
   removeWaypoint: (waypointId: number) => Promise<void>;
   loadPoi: (dayIndex: number, refresh?: boolean) => Promise<void>;
   loadAllPoi: () => Promise<void>;
+  loadWeather: (dayIndex: number) => Promise<void>;
+  loadAllWeather: () => Promise<void>;
+  setStartDate: (dateISO: string | null) => Promise<void>;
 }
 
 async function callApi<T>(url: string, init?: RequestInit): Promise<T> {
@@ -60,6 +67,10 @@ export const usePlanStore = create<PlanState>((set, get) => ({
   poiLoading: {},
   poiStale: {},
   poiError: {},
+  weatherByDay: {},
+  weatherLoading: {},
+  weatherError: {},
+  savingStartDate: false,
 
   init: (tripId, trip, simplifiedPoints) => {
     if (get().tripId === tripId) return;
@@ -74,6 +85,9 @@ export const usePlanStore = create<PlanState>((set, get) => ({
       poiLoading: {},
       poiStale: {},
       poiError: {},
+      weatherByDay: {},
+      weatherLoading: {},
+      weatherError: {},
       paceParams: trip.metadata.pace_params ?? DEFAULT_PACE_PARAMS,
       error: null,
     });
@@ -95,6 +109,7 @@ export const usePlanStore = create<PlanState>((set, get) => ({
       });
       set({ days: data.days });
       void get().loadAllPoi();
+      void get().loadAllWeather();
     } catch (e) {
       set({ error: e instanceof Error ? e.message : "Erreur lors du calcul du découpage." });
     } finally {
@@ -112,6 +127,7 @@ export const usePlanStore = create<PlanState>((set, get) => ({
       );
       set({ days: data.days, paceParams: data.pace_params });
       void get().loadAllPoi();
+      void get().loadAllWeather();
     } catch (e) {
       set({ error: e instanceof Error ? e.message : "Erreur lors du chargement du découpage." });
     } finally {
@@ -211,5 +227,54 @@ export const usePlanStore = create<PlanState>((set, get) => ({
   loadAllPoi: async () => {
     const { days } = get();
     await Promise.all(days.map((d) => get().loadPoi(d.day_index)));
+  },
+
+  loadWeather: async (dayIndex) => {
+    const { tripId } = get();
+    if (!tripId) return;
+    set((s) => ({
+      weatherLoading: { ...s.weatherLoading, [dayIndex]: true },
+      weatherError: { ...s.weatherError, [dayIndex]: null },
+    }));
+    try {
+      const data = await callApi<{ weather: DayWeather }>(
+        `/api/trips/${tripId}/weather?day_index=${dayIndex}`
+      );
+      set((s) => ({ weatherByDay: { ...s.weatherByDay, [dayIndex]: data.weather } }));
+    } catch (e) {
+      set((s) => ({
+        weatherError: {
+          ...s.weatherError,
+          [dayIndex]: e instanceof Error ? e.message : "Erreur lors du chargement de la météo.",
+        },
+      }));
+    } finally {
+      set((s) => ({ weatherLoading: { ...s.weatherLoading, [dayIndex]: false } }));
+    }
+  },
+
+  loadAllWeather: async () => {
+    const { days, trip } = get();
+    if (!trip?.start_date) return;
+    await Promise.all(days.map((d) => get().loadWeather(d.day_index)));
+  },
+
+  setStartDate: async (dateISO) => {
+    const { tripId, trip } = get();
+    if (!tripId || !trip) return;
+    set({ savingStartDate: true, error: null });
+    try {
+      const data = await callApi<{ trip: Trip }>(`/api/trips/${tripId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ start_date: dateISO }),
+      });
+      set({ trip: data.trip });
+      await get().loadDays();
+    } catch (e) {
+      set({ error: e instanceof Error ? e.message : "Erreur lors de la mise à jour de la date de départ." });
+    } finally {
+      set({ savingStartDate: false });
+    }
   },
 }));

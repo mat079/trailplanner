@@ -13,6 +13,7 @@ import DayList from "@/components/planning/DayList";
 import WaypointToolbar from "@/components/planning/WaypointToolbar";
 import WaypointList from "@/components/planning/WaypointList";
 import PoiPanel from "@/components/planning/PoiPanel";
+import WeatherPanel from "@/components/planning/WeatherPanel";
 import { fr } from "@/i18n/fr";
 import type { GpxPointSimplified, Trip } from "@/types";
 
@@ -32,7 +33,11 @@ export default function PlanClient({ trip, simplifiedPoints }: PlanClientProps) 
   const addWaypointAt = usePlanStore((s) => s.addWaypointAt);
   const poiByDay = usePlanStore((s) => s.poiByDay);
   const error = usePlanStore((s) => s.error);
+  const storeTrip = usePlanStore((s) => s.trip);
+  const setStartDate = usePlanStore((s) => s.setStartDate);
+  const savingStartDate = usePlanStore((s) => s.savingStartDate);
 
+  const currentTrip = storeTrip ?? trip;
   const allPoi = useMemo(() => Object.values(poiByDay).flat(), [poiByDay]);
 
   useEffect(() => {
@@ -41,16 +46,29 @@ export default function PlanClient({ trip, simplifiedPoints }: PlanClientProps) 
 
   return (
     <div className="tp-gradient-bg min-h-screen flex flex-col">
-      <header className="flex items-center justify-between px-6 py-4" style={{ borderBottom: "1px solid var(--tp-border)" }}>
+      <header className="flex items-center justify-between px-6 py-4 flex-wrap gap-3" style={{ borderBottom: "1px solid var(--tp-border)" }}>
         <div>
           <h1 className="tp-heading text-xl" style={{ color: "var(--tp-text)" }}>
-            {trip.name || fr.trip.unnamed}
+            {currentTrip.name || fr.trip.unnamed}
           </h1>
           <p className="text-xs mt-1" style={{ color: "var(--tp-text-muted)" }}>
-            {fr.planning.distLabel(trip.metadata.distance_m / 1000)} · {fr.planning.elevLabel(trip.metadata.elev_gain_m)} {fr.trip.elevGain.toLowerCase()}
+            {fr.planning.distLabel(currentTrip.metadata.distance_m / 1000)} · {fr.planning.elevLabel(currentTrip.metadata.elev_gain_m)} {fr.trip.elevGain.toLowerCase()}
           </p>
         </div>
-        <span className="tp-badge tp-badge-green text-xs">V1 · Bêta</span>
+        <div className="flex items-center gap-3">
+          <label className="flex items-center gap-2 text-xs" style={{ color: "var(--tp-text-muted)" }}>
+            {fr.weather.setDate}
+            <input
+              type="date"
+              className="tp-input"
+              style={{ width: "auto" }}
+              value={currentTrip.start_date ?? ""}
+              disabled={savingStartDate}
+              onChange={(e) => setStartDate(e.target.value || null)}
+            />
+          </label>
+          <span className="tp-badge tp-badge-green text-xs">V1 · Bêta</span>
+        </div>
       </header>
 
       <main className="flex-1 px-4 sm:px-6 py-6 max-w-6xl w-full mx-auto flex flex-col gap-4">
@@ -87,6 +105,7 @@ export default function PlanClient({ trip, simplifiedPoints }: PlanClientProps) 
         <WaypointList />
         <DayList />
         <PoiPanel />
+        <WeatherPanel />
       </main>
 
       <footer
@@ -94,7 +113,7 @@ export default function PlanClient({ trip, simplifiedPoints }: PlanClientProps) 
         style={{ color: "var(--tp-text-muted)", borderTop: "1px solid var(--tp-border)" }}
       >
         <p>
-          {fr.attribution.osm} · {fr.attribution.tiles}
+          {fr.attribution.osm} · {fr.attribution.tiles} · {fr.attribution.meteo}
         </p>
       </footer>
     </div>
