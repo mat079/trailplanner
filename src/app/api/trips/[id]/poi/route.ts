@@ -11,7 +11,7 @@
  */
 import { NextRequest, NextResponse } from "next/server";
 import { getTrip, getTripPoints, getDays, getCachedPoi, getStalePoi, savePoi } from "@/lib/db";
-import { fetchOverpassPoi, DEFAULT_BUFFER_M } from "@/modules/poi/overpass";
+import { fetchOverpassPoi, DEFAULT_BUFFER_M, type ParsedPoi } from "@/modules/poi/overpass";
 import type { ApiResponse, Poi } from "@/types";
 
 const OVERPASS_TIMEOUT_MS = 20_000;
@@ -63,17 +63,15 @@ export async function GET(
       );
     }
 
+    let parsed: ParsedPoi[];
     try {
       const controller = new AbortController();
       const timeout = setTimeout(() => controller.abort(), OVERPASS_TIMEOUT_MS);
-      let parsed;
       try {
         parsed = await fetchOverpassPoi(slice, DEFAULT_BUFFER_M, controller.signal);
       } finally {
         clearTimeout(timeout);
       }
-      const saved = await savePoi(id, dayIndex, parsed);
-      return NextResponse.json({ ok: true, data: { poi: saved, cached: false, stale: false } });
     } catch (overpassErr) {
       console.warn(
         "[api/trips/[id]/poi] Overpass indisponible, tentative de repli sur le cache expiré:",
@@ -87,6 +85,27 @@ export async function GET(
         { ok: false, error: "Service de points d'intérêt indisponible pour le moment. Réessayez plus tard." },
         { status: 503 }
       );
+    }
+
+    try {
+      const saved = await savePoi(id, dayIndex, parsed);
+      return NextResponse.json({ ok: true, data: { poi: saved, cached: false, stale: false } });
+    } catch (saveErr) {
+      // Overpass a répondu, seule la mise en cache (Postgres) a échoué : la
+      // requête est un succès pour l'utilisateur, la mise en cache n'est
+      // qu'une optimisation. Log distinct pour ne pas pointer vers Overpass
+      // en cas de débogage d'un problème DB.
+      console.error(
+        "[api/trips/[id]/poi] Échec de la mise en cache POI (DB), résultats Overpass servis sans cache:",
+        (saveErr as Error).message
+      );
+      const uncached: Poi[] = parsed.map((p) => ({
+        ...p,
+        trip_id: id,
+        day_index: dayIndex,
+        fetched_at: new Date().toISOString(),
+      }));
+      return NextResponse.json({ ok: true, data: { poi: uncached, cached: false, stale: false } });
     }
   } catch (err) {
     console.error("[api/trips/[id]/poi] Error:", err);
