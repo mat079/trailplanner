@@ -19,9 +19,9 @@ import {
   type StyleSpecification,
 } from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
-import { dayColor, nearestIndexByDistance, waypointStyle } from "@/lib/utils";
+import { dayColor, nearestIndexByDistance, waypointStyle, poiStyle } from "@/lib/utils";
 import { fr } from "@/i18n/fr";
-import type { DayWithStats, GpxPointSimplified, Waypoint, WaypointType } from "@/types";
+import type { DayWithStats, GpxPointSimplified, Poi, Waypoint, WaypointType } from "@/types";
 
 interface TrailMapProps {
   points: GpxPointSimplified[];
@@ -30,6 +30,7 @@ interface TrailMapProps {
   waypoints?: Waypoint[];
   placingType?: WaypointType | null;
   onMapClick?: (lat: number, lon: number) => void;
+  poi?: Poi[];
 }
 
 const OSM_STYLE: StyleSpecification = {
@@ -52,11 +53,13 @@ export default function TrailMap({
   waypoints = [],
   placingType = null,
   onMapClick,
+  poi = [],
 }: TrailMapProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<MapLibreMap | null>(null);
   const dayMarkersRef = useRef<Marker[]>([]);
   const waypointMarkersRef = useRef<Marker[]>([]);
+  const poiMarkersRef = useRef<Marker[]>([]);
   // "load" ne se déclenche qu'une seule fois par instance de carte : on le capture
   // dans un état partagé plutôt que de laisser chaque effet enregistrer son propre
   // map.once("load", ...), qui ne se déclencherait jamais si isStyleLoaded() est
@@ -195,6 +198,36 @@ export default function TrailMap({
       waypointMarkersRef.current.push(marker);
     }
   }, [waypoints, styleLoaded]);
+
+  // Marqueurs des POI (Overpass)
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !styleLoaded) return;
+
+    poiMarkersRef.current.forEach((m) => m.remove());
+    poiMarkersRef.current = [];
+    for (const p of poi) {
+      const style = poiStyle(p.type);
+      const el = document.createElement("div");
+      el.style.width = "20px";
+      el.style.height = "20px";
+      el.style.borderRadius = "50%";
+      el.style.display = "flex";
+      el.style.alignItems = "center";
+      el.style.justifyContent = "center";
+      el.style.fontSize = "11px";
+      el.style.background = "var(--tp-slate)";
+      el.style.border = `1.5px solid ${style.color}`;
+      el.style.boxShadow = "0 1px 3px rgba(0,0,0,0.5)";
+      el.style.opacity = "0.9";
+      el.textContent = style.icon;
+      const marker = new Marker({ element: el })
+        .setLngLat([p.lon, p.lat])
+        .setPopup(new Popup({ offset: 12, closeButton: false }).setText(p.name || fr.poi[p.type]))
+        .addTo(map);
+      poiMarkersRef.current.push(marker);
+    }
+  }, [poi, styleLoaded]);
 
   // Placement d'un point d'étape au clic
   useEffect(() => {

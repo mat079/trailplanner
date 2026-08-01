@@ -31,6 +31,17 @@ export function waypointStyle(type: "bivouac" | "ravitaillement" | "checkpoint")
   return WAYPOINT_STYLE[type];
 }
 
+const POI_STYLE: Record<"bakery" | "supermarket" | "grocery" | "water", { icon: string; color: string }> = {
+  bakery: { icon: "🥖", color: "#d97706" },
+  supermarket: { icon: "🏬", color: "#16a34a" },
+  grocery: { icon: "🥫", color: "#86c5a0" },
+  water: { icon: "💧", color: "#0891b2" },
+};
+
+export function poiStyle(type: "bakery" | "supermarket" | "grocery" | "water") {
+  return POI_STYLE[type];
+}
+
 /** Trouve l'index du point le plus proche d'une distance cumulée donnée (recherche dichotomique). */
 export function nearestIndexByDistance<T extends { dist_cumul: number }>(
   points: T[],

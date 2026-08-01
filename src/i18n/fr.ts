@@ -109,13 +109,15 @@ export const fr = {
     loading:         "Recherche en cours…",
     noResult:        "Aucun commerce ou point d'eau trouvé sur cette section.",
     bakery:          "Boulangerie",
-    grocery:         "Épicerie / Supermarché",
+    supermarket:     "Supermarché",
+    grocery:         "Épicerie",
     water:           "Point d'eau",
     sectionLabel:    (n: number) => `Section jour ${n}`,
     attribution:     "Données © OpenStreetMap contributors",
     bufferLabel:     "Rayon de recherche",
     bufferUnit:      "m autour de la trace",
     refresh:         "Actualiser",
+    staleNotice:     "Données en cache non actualisées (service momentanément indisponible).",
   },
 
   // ── Météo ─────────────────────────────────────────────────────────────────

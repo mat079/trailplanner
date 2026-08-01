@@ -410,6 +410,104 @@ export async function deleteWaypoint(tripId: string, waypointId: number): Promis
   }
 }
 
+const POI_CACHE_TTL_MS = 24 * 60 * 60 * 1000;
+
+/**
+ * Récupère les POI en cache pour un jour donné, uniquement si le cache est
+ * encore valide (TTL 24h). Retourne un tableau vide en cas d'absence ou
+ * d'expiration — au caller de déclencher un refetch Overpass dans ce cas.
+ */
+export async function getCachedPoi(tripId: string, dayIndex: number): Promise<Poi[]> {
+  try {
+    const res = await pool.query<Poi>(
+      `SELECT * FROM cached_poi
+       WHERE trip_id = $1 AND day_index = $2 AND fetched_at > NOW() - INTERVAL '24 hours'
+       ORDER BY type ASC, name ASC NULLS LAST`,
+      [tripId, dayIndex]
+    );
+    return res.rows;
+  } catch (err) {
+    if (!isDev()) {
+      throw err;
+    }
+    const all = memoryStore.poi.get(tripId) ?? [];
+    const cutoff = Date.now() - POI_CACHE_TTL_MS;
+    return all.filter(
+      (p) => p.day_index === dayIndex && new Date(p.fetched_at ?? 0).getTime() > cutoff
+    );
+  }
+}
+
+/**
+ * Récupère les POI en cache pour un jour donné, même expirés (TTL ignoré).
+ * Utilisé en dernier recours si Overpass est indisponible : mieux vaut des
+ * données potentiellement périmées qu'une section vide.
+ */
+export async function getStalePoi(tripId: string, dayIndex: number): Promise<Poi[]> {
+  try {
+    const res = await pool.query<Poi>(
+      `SELECT * FROM cached_poi WHERE trip_id = $1 AND day_index = $2 ORDER BY type ASC, name ASC NULLS LAST`,
+      [tripId, dayIndex]
+    );
+    return res.rows;
+  } catch (err) {
+    if (!isDev()) {
+      throw err;
+    }
+    return (memoryStore.poi.get(tripId) ?? []).filter((p) => p.day_index === dayIndex);
+  }
+}
+
+/**
+ * Remplace le cache POI d'un jour donné (purge puis insertion des résultats frais).
+ */
+export async function savePoi(
+  tripId: string,
+  dayIndex: number,
+  poiList: Omit<Poi, "id" | "trip_id" | "day_index" | "fetched_at">[]
+): Promise<Poi[]> {
+  try {
+    const client = await pool.connect();
+    try {
+      await client.query("BEGIN");
+      await client.query(`DELETE FROM cached_poi WHERE trip_id = $1 AND day_index = $2`, [tripId, dayIndex]);
+      const saved: Poi[] = [];
+      for (const poi of poiList) {
+        const res = await client.query<Poi>(
+          `INSERT INTO cached_poi (trip_id, day_index, type, name, lat, lon, osm_id)
+           VALUES ($1, $2, $3, $4, $5, $6, $7)
+           RETURNING *`,
+          [tripId, dayIndex, poi.type, poi.name, poi.lat, poi.lon, poi.osm_id]
+        );
+        saved.push(res.rows[0]);
+      }
+      await client.query("COMMIT");
+      return saved;
+    } catch (err) {
+      await client.query("ROLLBACK");
+      throw err;
+    } finally {
+      client.release();
+    }
+  } catch (err) {
+    if (!isDev()) {
+      throw err;
+    }
+    console.warn("[DB] PostgreSQL non accessible, cache POI en mémoire locale.", (err as Error).message);
+    const now = new Date().toISOString();
+    const saved: Poi[] = poiList.map((poi, i) => ({
+      id: Date.now() + i,
+      trip_id: tripId,
+      day_index: dayIndex,
+      fetched_at: now,
+      ...poi,
+    }));
+    const others = (memoryStore.poi.get(tripId) ?? []).filter((p) => p.day_index !== dayIndex);
+    memoryStore.poi.set(tripId, [...others, ...saved]);
+    return saved;
+  }
+}
+
 /**
  * Initialise le scheduler in-process pour la purge automatique (24h)
  * avec exécution immédiate au démarrage.

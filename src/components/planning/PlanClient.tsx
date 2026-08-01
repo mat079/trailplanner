@@ -4,7 +4,7 @@
  * components/planning/PlanClient.tsx
  * Orchestration client de la page /plan/[id] : carte, profil, paramètres, jours, points d'étape.
  */
-import { useEffect } from "react";
+import { useEffect, useMemo } from "react";
 import { usePlanStore } from "@/lib/planStore";
 import TrailMap from "@/components/map/TrailMap";
 import ElevationProfile from "@/components/elevation/ElevationProfile";
@@ -12,6 +12,7 @@ import PaceParamsPanel from "@/components/planning/PaceParamsPanel";
 import DayList from "@/components/planning/DayList";
 import WaypointToolbar from "@/components/planning/WaypointToolbar";
 import WaypointList from "@/components/planning/WaypointList";
+import PoiPanel from "@/components/planning/PoiPanel";
 import { fr } from "@/i18n/fr";
 import type { GpxPointSimplified, Trip } from "@/types";
 
@@ -29,7 +30,10 @@ export default function PlanClient({ trip, simplifiedPoints }: PlanClientProps) 
   const waypoints = usePlanStore((s) => s.waypoints);
   const placingType = usePlanStore((s) => s.placingType);
   const addWaypointAt = usePlanStore((s) => s.addWaypointAt);
+  const poiByDay = usePlanStore((s) => s.poiByDay);
   const error = usePlanStore((s) => s.error);
+
+  const allPoi = useMemo(() => Object.values(poiByDay).flat(), [poiByDay]);
 
   useEffect(() => {
     init(trip.id, trip, simplifiedPoints);
@@ -68,6 +72,7 @@ export default function PlanClient({ trip, simplifiedPoints }: PlanClientProps) 
               waypoints={waypoints}
               placingType={placingType}
               onMapClick={addWaypointAt}
+              poi={allPoi}
             />
           </div>
           <ElevationProfile
@@ -81,6 +86,7 @@ export default function PlanClient({ trip, simplifiedPoints }: PlanClientProps) 
 
         <WaypointList />
         <DayList />
+        <PoiPanel />
       </main>
 
       <footer

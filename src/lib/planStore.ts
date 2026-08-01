@@ -4,7 +4,7 @@
  */
 import { create } from "zustand";
 import { DEFAULT_PACE_PARAMS } from "@/modules/planning/paceModel";
-import type { ApiResponse, DayWithStats, GpxPointSimplified, PaceParams, Trip, Waypoint, WaypointType } from "@/types";
+import type { ApiResponse, DayWithStats, GpxPointSimplified, PaceParams, Poi, Trip, Waypoint, WaypointType } from "@/types";
 
 interface PlanState {
   tripId: string | null;
@@ -18,6 +18,10 @@ interface PlanState {
   hoveredDayIndex: number | null;
   waypoints: Waypoint[];
   placingType: WaypointType | null;
+  poiByDay: Record<number, Poi[]>;
+  poiLoading: Record<number, boolean>;
+  poiStale: Record<number, boolean>;
+  poiError: Record<number, string | null>;
 
   init: (tripId: string, trip: Trip, simplifiedPoints: GpxPointSimplified[]) => void;
   setPaceParams: (p: Partial<PaceParams>) => void;
@@ -29,6 +33,8 @@ interface PlanState {
   setPlacingType: (t: WaypointType | null) => void;
   addWaypointAt: (lat: number, lon: number) => Promise<void>;
   removeWaypoint: (waypointId: number) => Promise<void>;
+  loadPoi: (dayIndex: number, refresh?: boolean) => Promise<void>;
+  loadAllPoi: () => Promise<void>;
 }
 
 async function callApi<T>(url: string, init?: RequestInit): Promise<T> {
@@ -50,6 +56,10 @@ export const usePlanStore = create<PlanState>((set, get) => ({
   hoveredDayIndex: null,
   waypoints: [],
   placingType: null,
+  poiByDay: {},
+  poiLoading: {},
+  poiStale: {},
+  poiError: {},
 
   init: (tripId, trip, simplifiedPoints) => {
     if (get().tripId === tripId) return;
@@ -60,6 +70,10 @@ export const usePlanStore = create<PlanState>((set, get) => ({
       days: [],
       waypoints: [],
       placingType: null,
+      poiByDay: {},
+      poiLoading: {},
+      poiStale: {},
+      poiError: {},
       paceParams: trip.metadata.pace_params ?? DEFAULT_PACE_PARAMS,
       error: null,
     });
@@ -80,6 +94,7 @@ export const usePlanStore = create<PlanState>((set, get) => ({
         body: JSON.stringify({ pace_params: paceParams }),
       });
       set({ days: data.days });
+      void get().loadAllPoi();
     } catch (e) {
       set({ error: e instanceof Error ? e.message : "Erreur lors du calcul du découpage." });
     } finally {
@@ -96,6 +111,7 @@ export const usePlanStore = create<PlanState>((set, get) => ({
         `/api/trips/${tripId}/days`
       );
       set({ days: data.days, paceParams: data.pace_params });
+      void get().loadAllPoi();
     } catch (e) {
       set({ error: e instanceof Error ? e.message : "Erreur lors du chargement du découpage." });
     } finally {
@@ -161,5 +177,39 @@ export const usePlanStore = create<PlanState>((set, get) => ({
     } catch (e) {
       set({ waypoints: previous, error: e instanceof Error ? e.message : "Erreur lors de la suppression." });
     }
+  },
+
+  loadPoi: async (dayIndex, refresh = false) => {
+    const { tripId } = get();
+    if (!tripId) return;
+    set((s) => ({
+      poiLoading: { ...s.poiLoading, [dayIndex]: true },
+      poiError: { ...s.poiError, [dayIndex]: null },
+    }));
+    try {
+      const qs = new URLSearchParams({ day_index: String(dayIndex) });
+      if (refresh) qs.set("refresh", "true");
+      const data = await callApi<{ poi: Poi[]; cached: boolean; stale: boolean }>(
+        `/api/trips/${tripId}/poi?${qs.toString()}`
+      );
+      set((s) => ({
+        poiByDay: { ...s.poiByDay, [dayIndex]: data.poi },
+        poiStale: { ...s.poiStale, [dayIndex]: data.stale },
+      }));
+    } catch (e) {
+      set((s) => ({
+        poiError: {
+          ...s.poiError,
+          [dayIndex]: e instanceof Error ? e.message : "Erreur lors du chargement des points d'intérêt.",
+        },
+      }));
+    } finally {
+      set((s) => ({ poiLoading: { ...s.poiLoading, [dayIndex]: false } }));
+    }
+  },
+
+  loadAllPoi: async () => {
+    const { days } = get();
+    await Promise.all(days.map((d) => get().loadPoi(d.day_index)));
   },
 }));
