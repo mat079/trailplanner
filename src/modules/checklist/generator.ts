@@ -55,7 +55,7 @@ const RAIN_ITEMS: GeneratedChecklistItem[] = [
 ];
 
 const SNOW_ITEMS: GeneratedChecklistItem[] = [
-  { label: "Crampons ou microspikes", category: "clothing" },
+  { label: "Microspikes", category: "clothing" },
   { label: "Guêtres hautes", category: "clothing" },
   { label: "Lunettes de soleil catégorie 4", category: "clothing" },
   { label: "Crème solaire haute protection (réverbération neige)", category: "clothing" },

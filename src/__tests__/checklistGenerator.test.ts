@@ -44,8 +44,8 @@ describe("generateChecklist", () => {
   });
 
   it("ajoute les items neige uniquement si hasSnow", () => {
-    expect(labelsOf({ ...BASE_CTX, hasSnow: true })).toContain("Crampons ou microspikes");
-    expect(labelsOf({ ...BASE_CTX, hasSnow: false })).not.toContain("Crampons ou microspikes");
+    expect(labelsOf({ ...BASE_CTX, hasSnow: true })).toContain("Microspikes");
+    expect(labelsOf({ ...BASE_CTX, hasSnow: false })).not.toContain("Microspikes");
   });
 
   it("ajoute les items froid uniquement si hasCold", () => {
@@ -71,7 +71,7 @@ describe("generateChecklist", () => {
     const labels = items.map((i) => i.label);
     expect(labels).toContain("Réchaud + gaz");
     expect(labels).toContain("Guêtres");
-    expect(labels).toContain("Crampons ou microspikes");
+    expect(labels).toContain("Microspikes");
     expect(labels).toContain("Bonnet");
     expect(labels).toContain("Lunettes de soleil catégorie 3 minimum (exposition UV altitude)");
   });
