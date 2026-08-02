@@ -15,6 +15,7 @@ import WaypointList from "@/components/planning/WaypointList";
 import PoiPanel from "@/components/planning/PoiPanel";
 import WeatherPanel from "@/components/planning/WeatherPanel";
 import NutritionPanel from "@/components/planning/NutritionPanel";
+import ChecklistPanel from "@/components/planning/ChecklistPanel";
 import { fr } from "@/i18n/fr";
 import type { GpxPointSimplified, Trip } from "@/types";
 
@@ -108,6 +109,7 @@ export default function PlanClient({ trip, simplifiedPoints }: PlanClientProps) 
         <PoiPanel />
         <WeatherPanel />
         <NutritionPanel />
+        <ChecklistPanel />
       </main>
 
       <footer

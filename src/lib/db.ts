@@ -627,6 +627,166 @@ export async function savePoi(
 }
 
 /**
+ * Liste les items de checklist d'une sortie, ordonnés.
+ */
+export async function getChecklistItems(tripId: string): Promise<ChecklistItem[]> {
+  try {
+    const res = await pool.query<ChecklistItem>(
+      `SELECT * FROM checklist_items WHERE trip_id = $1 ORDER BY sort_order ASC`,
+      [tripId]
+    );
+    return res.rows;
+  } catch (err) {
+    if (!isDev()) {
+      throw err;
+    }
+    return [...(memoryStore.checklist.get(tripId) ?? [])].sort((a, b) => a.sort_order - b.sort_order);
+  }
+}
+
+/**
+ * Ajoute un item personnalisé (custom = true), en fin de liste.
+ */
+export async function addChecklistItem(
+  tripId: string,
+  data: { label: string; category: ChecklistItem["category"] }
+): Promise<ChecklistItem> {
+  try {
+    const res = await pool.query<ChecklistItem>(
+      `INSERT INTO checklist_items (trip_id, label, category, checked, custom, sort_order)
+       VALUES ($1, $2, $3, FALSE, TRUE, (SELECT COALESCE(MAX(sort_order), -1) + 1 FROM checklist_items WHERE trip_id = $1))
+       RETURNING *`,
+      [tripId, data.label, data.category]
+    );
+    return res.rows[0];
+  } catch (err) {
+    if (!isDev()) {
+      throw err;
+    }
+    const items = memoryStore.checklist.get(tripId) ?? [];
+    const nextSortOrder = items.reduce((max, i) => Math.max(max, i.sort_order), -1) + 1;
+    const item: ChecklistItem = {
+      id: Date.now(),
+      trip_id: tripId,
+      label: data.label,
+      category: data.category,
+      checked: false,
+      custom: true,
+      sort_order: nextSortOrder,
+    };
+    memoryStore.checklist.set(tripId, [...items, item]);
+    return item;
+  }
+}
+
+/**
+ * Coche/décoche un item (custom ou généré, peu importe).
+ */
+export async function setChecklistItemChecked(
+  tripId: string,
+  itemId: number,
+  checked: boolean
+): Promise<ChecklistItem | null> {
+  try {
+    const res = await pool.query<ChecklistItem>(
+      `UPDATE checklist_items SET checked = $3 WHERE id = $1 AND trip_id = $2 RETURNING *`,
+      [itemId, tripId, checked]
+    );
+    return res.rows[0] ?? null;
+  } catch (err) {
+    if (!isDev()) {
+      throw err;
+    }
+    const items = memoryStore.checklist.get(tripId) ?? [];
+    const idx = items.findIndex((i) => i.id === itemId);
+    if (idx === -1) return null;
+    items[idx] = { ...items[idx], checked };
+    memoryStore.checklist.set(tripId, items);
+    return items[idx];
+  }
+}
+
+/**
+ * Supprime un item, custom ou généré (l'utilisateur peut toujours écarter
+ * une suggestion qui ne lui convient pas).
+ */
+export async function deleteChecklistItem(tripId: string, itemId: number): Promise<boolean> {
+  try {
+    const res = await pool.query(`DELETE FROM checklist_items WHERE id = $1 AND trip_id = $2`, [
+      itemId,
+      tripId,
+    ]);
+    return (res.rowCount ?? 0) > 0;
+  } catch (err) {
+    if (!isDev()) {
+      throw err;
+    }
+    const items = memoryStore.checklist.get(tripId) ?? [];
+    const nextLength = items.filter((i) => i.id !== itemId).length;
+    const changed = nextLength !== items.length;
+    memoryStore.checklist.set(tripId, items.filter((i) => i.id !== itemId));
+    return changed;
+  }
+}
+
+/**
+ * Régénère les items non personnalisés (custom = false) à partir des règles
+ * contextuelles : remplace entièrement l'ancien jeu généré, mais préserve
+ * l'état coché des items dont le libellé persiste d'une génération à
+ * l'autre, et ne touche jamais aux items personnalisés de l'utilisateur.
+ */
+export async function regenerateChecklist(
+  tripId: string,
+  items: { label: string; category: ChecklistItem["category"] }[]
+): Promise<ChecklistItem[]> {
+  try {
+    const client = await pool.connect();
+    try {
+      await client.query("BEGIN");
+      const previous = await client.query<ChecklistItem>(
+        `SELECT label, checked FROM checklist_items WHERE trip_id = $1 AND custom = FALSE`,
+        [tripId]
+      );
+      const checkedByLabel = new Map(previous.rows.map((r) => [r.label, r.checked]));
+
+      await client.query(`DELETE FROM checklist_items WHERE trip_id = $1 AND custom = FALSE`, [tripId]);
+
+      for (let i = 0; i < items.length; i++) {
+        await client.query(
+          `INSERT INTO checklist_items (trip_id, label, category, checked, custom, sort_order)
+           VALUES ($1, $2, $3, $4, FALSE, $5)`,
+          [tripId, items[i].label, items[i].category, checkedByLabel.get(items[i].label) ?? false, i]
+        );
+      }
+      await client.query("COMMIT");
+    } catch (err) {
+      await client.query("ROLLBACK");
+      throw err;
+    } finally {
+      client.release();
+    }
+  } catch (err) {
+    if (!isDev()) {
+      throw err;
+    }
+    const existing = memoryStore.checklist.get(tripId) ?? [];
+    const checkedByLabel = new Map(existing.filter((i) => !i.custom).map((i) => [i.label, i.checked]));
+    const customItems = existing.filter((i) => i.custom);
+    const generated: ChecklistItem[] = items.map((it, i) => ({
+      id: Date.now() + i,
+      trip_id: tripId,
+      label: it.label,
+      category: it.category,
+      checked: checkedByLabel.get(it.label) ?? false,
+      custom: false,
+      sort_order: i,
+    }));
+    memoryStore.checklist.set(tripId, [...generated, ...customItems]);
+  }
+  return getChecklistItems(tripId);
+}
+
+/**
  * Initialise le scheduler in-process pour la purge automatique (24h)
  * avec exécution immédiate au démarrage.
  */

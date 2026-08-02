@@ -187,6 +187,9 @@ export const fr = {
     removeItem:       "Supprimer",
     allChecked:       "✓ Tout est prêt !",
     progress:         (done: number, total: number) => `${done} / ${total} éléments cochés`,
+    regenerate:       "Régénérer",
+    regenerating:     "Génération en cours…",
+    empty:            "Aucun élément pour le moment.",
   },
 
   // ── Export PDF ────────────────────────────────────────────────────────────

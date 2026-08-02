@@ -4,7 +4,7 @@
  */
 import { create } from "zustand";
 import { DEFAULT_PACE_PARAMS } from "@/modules/planning/paceModel";
-import type { ApiResponse, DayNutrition, DayWeather, DayWithStats, GpxPointSimplified, PaceParams, Poi, Trip, Waypoint, WaypointType } from "@/types";
+import type { ApiResponse, ChecklistCategory, ChecklistItem, DayNutrition, DayWeather, DayWithStats, GpxPointSimplified, PaceParams, Poi, Trip, Waypoint, WaypointType } from "@/types";
 
 interface PlanState {
   tripId: string | null;
@@ -30,6 +30,10 @@ interface PlanState {
   nutritionTripTotalG: number;
   nutritionLoading: boolean;
   nutritionError: string | null;
+  checklistItems: ChecklistItem[];
+  checklistLoaded: boolean;
+  checklistLoading: boolean;
+  checklistError: string | null;
 
   init: (tripId: string, trip: Trip, simplifiedPoints: GpxPointSimplified[]) => void;
   setPaceParams: (p: Partial<PaceParams>) => void;
@@ -48,6 +52,12 @@ interface PlanState {
   setStartDate: (dateISO: string | null) => Promise<void>;
   loadNutrition: () => Promise<void>;
   setNutritionOverride: (dayIndex: number, overrideGH: number | null) => Promise<void>;
+  loadChecklist: () => Promise<void>;
+  generateChecklist: () => Promise<void>;
+  ensureChecklistGenerated: () => Promise<void>;
+  toggleChecklistItem: (itemId: number, checked: boolean) => Promise<void>;
+  addChecklistItem: (label: string, category: ChecklistCategory) => Promise<void>;
+  removeChecklistItem: (itemId: number) => Promise<void>;
 }
 
 async function callApi<T>(url: string, init?: RequestInit): Promise<T> {
@@ -81,6 +91,10 @@ export const usePlanStore = create<PlanState>((set, get) => ({
   nutritionTripTotalG: 0,
   nutritionLoading: false,
   nutritionError: null,
+  checklistItems: [],
+  checklistLoaded: false,
+  checklistLoading: false,
+  checklistError: null,
 
   init: (tripId, trip, simplifiedPoints) => {
     if (get().tripId === tripId) return;
@@ -101,11 +115,15 @@ export const usePlanStore = create<PlanState>((set, get) => ({
       nutritionByDay: {},
       nutritionTripTotalG: 0,
       nutritionError: null,
+      checklistItems: [],
+      checklistLoaded: false,
+      checklistError: null,
       paceParams: trip.metadata.pace_params ?? DEFAULT_PACE_PARAMS,
       error: null,
     });
     void get().loadDays();
     void get().loadWaypoints();
+    void get().loadChecklist();
   },
 
   setPaceParams: (p) => set((s) => ({ paceParams: { ...s.paceParams, ...p } })),
@@ -124,6 +142,7 @@ export const usePlanStore = create<PlanState>((set, get) => ({
       void get().loadAllPoi();
       void get().loadAllWeather();
       void get().loadNutrition();
+      void get().ensureChecklistGenerated();
     } catch (e) {
       set({ error: e instanceof Error ? e.message : "Erreur lors du calcul du découpage." });
     } finally {
@@ -143,6 +162,7 @@ export const usePlanStore = create<PlanState>((set, get) => ({
       void get().loadAllPoi();
       void get().loadAllWeather();
       void get().loadNutrition();
+      void get().ensureChecklistGenerated();
     } catch (e) {
       set({ error: e instanceof Error ? e.message : "Erreur lors du chargement du découpage." });
     } finally {
@@ -331,6 +351,100 @@ export const usePlanStore = create<PlanState>((set, get) => ({
       });
     } catch (e) {
       set({ nutritionError: e instanceof Error ? e.message : "Erreur lors de la mise à jour de l'override." });
+    }
+  },
+
+  loadChecklist: async () => {
+    const { tripId } = get();
+    if (!tripId) return;
+    set({ checklistLoading: true, checklistError: null });
+    try {
+      const data = await callApi<{ items: ChecklistItem[] }>(`/api/trips/${tripId}/checklist`);
+      set({ checklistItems: data.items, checklistLoaded: true });
+    } catch (e) {
+      set({ checklistError: e instanceof Error ? e.message : "Erreur lors du chargement de la checklist." });
+    } finally {
+      set({ checklistLoading: false });
+    }
+  },
+
+  generateChecklist: async () => {
+    const { tripId } = get();
+    if (!tripId) return;
+    set({ checklistLoading: true, checklistError: null });
+    try {
+      const data = await callApi<{ items: ChecklistItem[] }>(`/api/trips/${tripId}/checklist/generate`, {
+        method: "POST",
+      });
+      set({ checklistItems: data.items, checklistLoaded: true });
+    } catch (e) {
+      set({ checklistError: e instanceof Error ? e.message : "Erreur lors de la génération de la checklist." });
+    } finally {
+      set({ checklistLoading: false });
+    }
+  },
+
+  ensureChecklistGenerated: async () => {
+    const { tripId, checklistLoaded } = get();
+    if (!tripId) return;
+    if (!checklistLoaded) {
+      await get().loadChecklist();
+    }
+    // Ne régénère que si aucun item n'existe encore : une régénération
+    // automatique à chaque recalcul de jours écraserait la progression de
+    // l'utilisateur. Le bouton "Régénérer" reste disponible pour un refresh explicite.
+    if (get().checklistItems.length === 0) {
+      await get().generateChecklist();
+    }
+  },
+
+  toggleChecklistItem: async (itemId, checked) => {
+    const { tripId, checklistItems } = get();
+    if (!tripId) return;
+    const previous = checklistItems;
+    set({ checklistItems: checklistItems.map((i) => (i.id === itemId ? { ...i, checked } : i)) });
+    try {
+      await callApi(`/api/trips/${tripId}/checklist/${itemId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ checked }),
+      });
+    } catch (e) {
+      set({
+        checklistItems: previous,
+        checklistError: e instanceof Error ? e.message : "Erreur lors de la mise à jour de l'item.",
+      });
+    }
+  },
+
+  addChecklistItem: async (label, category) => {
+    const { tripId, checklistItems } = get();
+    if (!tripId) return;
+    set({ checklistError: null });
+    try {
+      const data = await callApi<{ item: ChecklistItem }>(`/api/trips/${tripId}/checklist`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ label, category }),
+      });
+      set({ checklistItems: [...checklistItems, data.item] });
+    } catch (e) {
+      set({ checklistError: e instanceof Error ? e.message : "Erreur lors de l'ajout de l'item." });
+    }
+  },
+
+  removeChecklistItem: async (itemId) => {
+    const { tripId, checklistItems } = get();
+    if (!tripId) return;
+    const previous = checklistItems;
+    set({ checklistItems: checklistItems.filter((i) => i.id !== itemId) });
+    try {
+      await callApi(`/api/trips/${tripId}/checklist/${itemId}`, { method: "DELETE" });
+    } catch (e) {
+      set({
+        checklistItems: previous,
+        checklistError: e instanceof Error ? e.message : "Erreur lors de la suppression de l'item.",
+      });
     }
   },
 }));

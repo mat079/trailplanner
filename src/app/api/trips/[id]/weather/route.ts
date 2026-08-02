@@ -9,7 +9,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getTrip, getTripPoints, getDays } from "@/lib/db";
 import { computeDayDate } from "@/modules/planning/dayBuilder";
-import { fetchDayWeather, type WeatherLocation } from "@/modules/weather/openMeteo";
+import { fetchDayWeather } from "@/modules/weather/openMeteo";
+import { resolveDayWeatherLocation } from "@/lib/weatherLocation";
 import type { ApiResponse, DayWeather } from "@/types";
 
 const WEATHER_TIMEOUT_MS = 15_000;
@@ -49,19 +50,13 @@ export async function GET(
       );
     }
 
-    let location: WeatherLocation;
-    if (day.bivouac_lat !== null && day.bivouac_lon !== null) {
-      location = { lat: day.bivouac_lat, lon: day.bivouac_lon, elevationM: day.bivouac_ele };
-    } else {
-      const points = await getTripPoints(id);
-      const endPoint = points[day.end_point_index];
-      if (!endPoint) {
-        return NextResponse.json(
-          { ok: false, error: "Impossible de déterminer une localisation pour ce jour." },
-          { status: 422 }
-        );
-      }
-      location = { lat: endPoint.lat, lon: endPoint.lon, elevationM: endPoint.ele };
+    const points = await getTripPoints(id);
+    const location = resolveDayWeatherLocation(day, points);
+    if (!location) {
+      return NextResponse.json(
+        { ok: false, error: "Impossible de déterminer une localisation pour ce jour." },
+        { status: 422 }
+      );
     }
 
     const dateISO = computeDayDate(trip.start_date, dayIndex);
