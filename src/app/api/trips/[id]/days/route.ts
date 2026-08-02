@@ -71,6 +71,7 @@ export async function POST(
       bivouac_lon: null,
       bivouac_ele: null,
       date: computeDayDate(trip.start_date, d.day_index),
+      nutrition_override_g_h: null,
     }));
 
     const saved = await saveDays(id, days);

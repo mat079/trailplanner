@@ -66,6 +66,7 @@ export interface TripDay {
   bivouac_lon: number | null;
   bivouac_ele: number | null;
   date: string | null;           // ISO date
+  nutrition_override_g_h: number | null;
 }
 
 export interface PaceParams {

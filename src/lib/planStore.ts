@@ -4,7 +4,7 @@
  */
 import { create } from "zustand";
 import { DEFAULT_PACE_PARAMS } from "@/modules/planning/paceModel";
-import type { ApiResponse, DayWeather, DayWithStats, GpxPointSimplified, PaceParams, Poi, Trip, Waypoint, WaypointType } from "@/types";
+import type { ApiResponse, DayNutrition, DayWeather, DayWithStats, GpxPointSimplified, PaceParams, Poi, Trip, Waypoint, WaypointType } from "@/types";
 
 interface PlanState {
   tripId: string | null;
@@ -26,6 +26,10 @@ interface PlanState {
   weatherLoading: Record<number, boolean>;
   weatherError: Record<number, string | null>;
   savingStartDate: boolean;
+  nutritionByDay: Record<number, DayNutrition>;
+  nutritionTripTotalG: number;
+  nutritionLoading: boolean;
+  nutritionError: string | null;
 
   init: (tripId: string, trip: Trip, simplifiedPoints: GpxPointSimplified[]) => void;
   setPaceParams: (p: Partial<PaceParams>) => void;
@@ -42,6 +46,8 @@ interface PlanState {
   loadWeather: (dayIndex: number) => Promise<void>;
   loadAllWeather: () => Promise<void>;
   setStartDate: (dateISO: string | null) => Promise<void>;
+  loadNutrition: () => Promise<void>;
+  setNutritionOverride: (dayIndex: number, overrideGH: number | null) => Promise<void>;
 }
 
 async function callApi<T>(url: string, init?: RequestInit): Promise<T> {
@@ -71,6 +77,10 @@ export const usePlanStore = create<PlanState>((set, get) => ({
   weatherLoading: {},
   weatherError: {},
   savingStartDate: false,
+  nutritionByDay: {},
+  nutritionTripTotalG: 0,
+  nutritionLoading: false,
+  nutritionError: null,
 
   init: (tripId, trip, simplifiedPoints) => {
     if (get().tripId === tripId) return;
@@ -88,6 +98,9 @@ export const usePlanStore = create<PlanState>((set, get) => ({
       weatherByDay: {},
       weatherLoading: {},
       weatherError: {},
+      nutritionByDay: {},
+      nutritionTripTotalG: 0,
+      nutritionError: null,
       paceParams: trip.metadata.pace_params ?? DEFAULT_PACE_PARAMS,
       error: null,
     });
@@ -110,6 +123,7 @@ export const usePlanStore = create<PlanState>((set, get) => ({
       set({ days: data.days });
       void get().loadAllPoi();
       void get().loadAllWeather();
+      void get().loadNutrition();
     } catch (e) {
       set({ error: e instanceof Error ? e.message : "Erreur lors du calcul du découpage." });
     } finally {
@@ -128,6 +142,7 @@ export const usePlanStore = create<PlanState>((set, get) => ({
       set({ days: data.days, paceParams: data.pace_params });
       void get().loadAllPoi();
       void get().loadAllWeather();
+      void get().loadNutrition();
     } catch (e) {
       set({ error: e instanceof Error ? e.message : "Erreur lors du chargement du découpage." });
     } finally {
@@ -275,6 +290,47 @@ export const usePlanStore = create<PlanState>((set, get) => ({
       set({ error: e instanceof Error ? e.message : "Erreur lors de la mise à jour de la date de départ." });
     } finally {
       set({ savingStartDate: false });
+    }
+  },
+
+  loadNutrition: async () => {
+    const { tripId } = get();
+    if (!tripId) return;
+    set({ nutritionLoading: true, nutritionError: null });
+    try {
+      const data = await callApi<{ days: DayNutrition[]; trip_total_g: number }>(
+        `/api/trips/${tripId}/nutrition`
+      );
+      set({
+        nutritionByDay: Object.fromEntries(data.days.map((d) => [d.day_index, d])),
+        nutritionTripTotalG: data.trip_total_g,
+      });
+    } catch (e) {
+      set({ nutritionError: e instanceof Error ? e.message : "Erreur lors du calcul des besoins en glucides." });
+    } finally {
+      set({ nutritionLoading: false });
+    }
+  },
+
+  setNutritionOverride: async (dayIndex, overrideGH) => {
+    const { tripId } = get();
+    if (!tripId) return;
+    set({ nutritionError: null });
+    try {
+      const data = await callApi<{ days: DayNutrition[]; trip_total_g: number }>(
+        `/api/trips/${tripId}/nutrition`,
+        {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ day_index: dayIndex, override_g_h: overrideGH }),
+        }
+      );
+      set({
+        nutritionByDay: Object.fromEntries(data.days.map((d) => [d.day_index, d])),
+        nutritionTripTotalG: data.trip_total_g,
+      });
+    } catch (e) {
+      set({ nutritionError: e instanceof Error ? e.message : "Erreur lors de la mise à jour de l'override." });
     }
   },
 }));

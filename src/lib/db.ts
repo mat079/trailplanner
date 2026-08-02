@@ -498,6 +498,36 @@ export async function setDayBivouac(
   }
 }
 
+/**
+ * Définit (ou efface avec null) la cible manuelle de glucides/h d'un jour —
+ * prime sur la recommandation automatique quand elle est définie.
+ */
+export async function setNutritionOverride(
+  tripId: string,
+  dayIndex: number,
+  overrideGH: number | null
+): Promise<TripDay | null> {
+  try {
+    const res = await pool.query<TripDay>(
+      `UPDATE trip_days SET nutrition_override_g_h = $3
+       WHERE trip_id = $1 AND day_index = $2
+       RETURNING *`,
+      [tripId, dayIndex, overrideGH]
+    );
+    return res.rows[0] ?? null;
+  } catch (err) {
+    if (!isDev()) {
+      throw err;
+    }
+    const days = memoryStore.days.get(tripId) ?? [];
+    const idx = days.findIndex((d) => d.day_index === dayIndex);
+    if (idx === -1) return null;
+    days[idx] = { ...days[idx], nutrition_override_g_h: overrideGH };
+    memoryStore.days.set(tripId, days);
+    return days[idx];
+  }
+}
+
 const POI_CACHE_TTL_MS = 24 * 60 * 60 * 1000;
 
 /**

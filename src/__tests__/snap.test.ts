@@ -17,6 +17,7 @@ function makeDay(day_index: number, start_point_index: number, end_point_index: 
     bivouac_lon: null,
     bivouac_ele: null,
     date: null,
+    nutrition_override_g_h: null,
   };
 }
 

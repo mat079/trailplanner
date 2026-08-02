@@ -51,6 +51,7 @@ CREATE TABLE IF NOT EXISTS trip_days (
   bivouac_lon       DOUBLE PRECISION,
   bivouac_ele       DOUBLE PRECISION,
   date              DATE,
+  nutrition_override_g_h DOUBLE PRECISION,  -- cible glucides/h saisie manuellement (étape 6)
   UNIQUE(trip_id, day_index)
 );
 

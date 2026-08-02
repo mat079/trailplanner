@@ -162,6 +162,8 @@ export const fr = {
     overrideLabel:   "Saisir ma propre cible",
     overridePlaceholder: "ex. 90",
     overrideUnit:    "g/h",
+    overrideConfirm: "Valider",
+    overrideCancel:  "Annuler",
     overrideReset:   "Revenir au calcul automatique",
     hint:            "Basé sur la distance, le dénivelé et le temps estimé de chaque étape.",
   },
