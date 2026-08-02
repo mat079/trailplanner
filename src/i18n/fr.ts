@@ -197,6 +197,10 @@ export const fr = {
     title:      "Fiche de sortie",
     printBtn:   "Imprimer / Enregistrer en PDF",
     generated:  "Généré par TrailPlanner",
+    poiNotCached: "Pas de données chargées — ouvrez la page de planification pour les récupérer.",
+    weatherUnavailable: "Météo non disponible.",
+    noWaypoints: "Aucun point d'étape ce jour.",
+    checklistTitle: "Checklist matériel",
   },
 
   // ── Erreurs génériques ────────────────────────────────────────────────────

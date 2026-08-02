@@ -7,28 +7,10 @@
  * PATCH : définit (ou efface avec null) l'override manuel d'un jour.
  */
 import { NextRequest, NextResponse } from "next/server";
-import { getTrip, getTripPoints, getDays, setNutritionOverride } from "@/lib/db";
-import { computeDayStats } from "@/modules/planning/dayBuilder";
-import { computeDayNutrition, computeTripTotalCarbsG } from "@/modules/nutrition/carbsCalc";
-import { DEFAULT_PACE_PARAMS } from "@/modules/planning/paceModel";
-import type { ApiResponse, DayNutrition, Trip } from "@/types";
-
-async function computeAllDayNutrition(tripId: string, trip: Trip): Promise<DayNutrition[]> {
-  const days = await getDays(tripId);
-  if (days.length === 0) return [];
-
-  const points = await getTripPoints(tripId);
-  const paceParams = trip.metadata.pace_params ?? DEFAULT_PACE_PARAMS;
-
-  return days.map((d) => {
-    const stats = computeDayStats(points, d.start_point_index, d.end_point_index, paceParams);
-    return computeDayNutrition(
-      d.day_index,
-      { elevGainM: stats.elev_gain_m, durationH: stats.duration_h, flatSpeedKmh: paceParams.speed_kmh },
-      d.nutrition_override_g_h
-    );
-  });
-}
+import { getTrip, setNutritionOverride } from "@/lib/db";
+import { computeAllDayNutrition } from "@/lib/nutritionSummary";
+import { computeTripTotalCarbsG } from "@/modules/nutrition/carbsCalc";
+import type { ApiResponse, DayNutrition } from "@/types";
 
 export async function GET(
   req: NextRequest,

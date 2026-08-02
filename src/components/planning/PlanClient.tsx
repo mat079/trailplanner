@@ -5,7 +5,9 @@
  * Orchestration client de la page /plan/[id] : carte, profil, paramètres, jours, points d'étape.
  */
 import { useEffect, useMemo } from "react";
+import Link from "next/link";
 import { usePlanStore } from "@/lib/planStore";
+import { Button } from "@/components/ui/button";
 import TrailMap from "@/components/map/TrailMap";
 import ElevationProfile from "@/components/elevation/ElevationProfile";
 import PaceParamsPanel from "@/components/planning/PaceParamsPanel";
@@ -69,6 +71,9 @@ export default function PlanClient({ trip, simplifiedPoints }: PlanClientProps) 
               onChange={(e) => setStartDate(e.target.value || null)}
             />
           </label>
+          <Button type="button" variant="outline" size="sm" asChild>
+            <Link href={`/plan/${currentTrip.id}/print`}>{fr.nav.print}</Link>
+          </Button>
           <span className="tp-badge tp-badge-green text-xs">V1 · Bêta</span>
         </div>
       </header>

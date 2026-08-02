@@ -327,6 +327,17 @@ body {
    Print styles (export PDF)
    ============================================================ */
 @media print {
+  /* Les couleurs de texte/bordure sont pilotées par ces variables partout
+     dans l'app (thème sombre par défaut) : sans ce recouvrement, tout texte
+     utilisant var(--tp-text)/var(--tp-text-muted) resterait clair sur le
+     fond blanc d'impression et deviendrait quasi illisible. */
+  :root {
+    --tp-text: #111111;
+    --tp-text-muted: #555555;
+    --tp-border: #dddddd;
+    --tp-slate: #ffffff;
+    --tp-glass: #ffffff;
+  }
   body {
     background: #fff;
     color: #111;
@@ -337,6 +348,7 @@ body {
     background: #fff;
     border: 1px solid #ddd;
     box-shadow: none;
+    break-inside: avoid;
   }
   @page {
     margin: 20mm;
