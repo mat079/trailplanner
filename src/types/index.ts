@@ -17,6 +17,21 @@ export interface Trip {
   metadata: TripMetadata;
 }
 
+/**
+ * Vue publique d'un Trip renvoyée par l'API : exclut les champs internes qui
+ * n'ont aucun usage côté client (session_id) ou qui gonfleraient inutilement
+ * chaque réponse (gpx_raw, potentiellement plusieurs Mo, jamais lu par l'UI —
+ * les points simplifiés/bruts transitent par leurs propres endpoints dédiés).
+ */
+export type PublicTrip = Omit<Trip, "gpx_raw" | "session_id">;
+
+export function toPublicTrip(trip: Trip): PublicTrip {
+  const { gpx_raw, session_id, ...publicTrip } = trip;
+  void gpx_raw;
+  void session_id;
+  return publicTrip;
+}
+
 export interface TripMetadata {
   distance_m:   number;          // distance totale en mètres
   elev_gain_m:  number;          // D+

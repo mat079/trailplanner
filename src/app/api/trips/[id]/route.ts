@@ -6,14 +6,15 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getTrip, getTripPoints, updateTripStartDate } from "@/lib/db";
 import { douglasPeucker, adaptiveEpsilon } from "@/modules/gpx/simplify";
-import type { ApiResponse, Trip, GpxPointSimplified } from "@/types";
+import { toPublicTrip } from "@/types";
+import type { ApiResponse, PublicTrip, GpxPointSimplified } from "@/types";
 
 const ISO_DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 
 export async function GET(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
-): Promise<NextResponse<ApiResponse<{ trip: Trip; simplified_points: GpxPointSimplified[] }>>> {
+): Promise<NextResponse<ApiResponse<{ trip: PublicTrip; simplified_points: GpxPointSimplified[] }>>> {
   try {
     const { id } = await params;
     const trip = await getTrip(id);
@@ -32,7 +33,7 @@ export async function GET(
     return NextResponse.json({
       ok: true,
       data: {
-        trip,
+        trip: toPublicTrip(trip),
         simplified_points: simplified,
       },
     });
@@ -52,7 +53,7 @@ export async function GET(
 export async function PATCH(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
-): Promise<NextResponse<ApiResponse<{ trip: Trip }>>> {
+): Promise<NextResponse<ApiResponse<{ trip: PublicTrip }>>> {
   try {
     const { id } = await params;
     const trip = await getTrip(id);
@@ -77,7 +78,7 @@ export async function PATCH(
       return NextResponse.json({ ok: false, error: "Sortie introuvable." }, { status: 404 });
     }
 
-    return NextResponse.json({ ok: true, data: { trip: updated } });
+    return NextResponse.json({ ok: true, data: { trip: toPublicTrip(updated) } });
   } catch (err) {
     console.error("[api/trips/[id]][PATCH] Error:", err);
     return NextResponse.json(

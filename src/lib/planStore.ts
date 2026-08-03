@@ -4,11 +4,11 @@
  */
 import { create } from "zustand";
 import { DEFAULT_PACE_PARAMS } from "@/modules/planning/paceModel";
-import type { ApiResponse, ChecklistCategory, ChecklistItem, DayNutrition, DayWeather, DayWithStats, GpxPointSimplified, PaceParams, Poi, Trip, Waypoint, WaypointType } from "@/types";
+import type { ApiResponse, ChecklistCategory, ChecklistItem, DayNutrition, DayWeather, DayWithStats, GpxPointSimplified, PaceParams, Poi, PublicTrip, Waypoint, WaypointType } from "@/types";
 
 interface PlanState {
   tripId: string | null;
-  trip: Trip | null;
+  trip: PublicTrip | null;
   simplifiedPoints: GpxPointSimplified[];
   days: DayWithStats[];
   paceParams: PaceParams;
@@ -35,7 +35,7 @@ interface PlanState {
   checklistLoading: boolean;
   checklistError: string | null;
 
-  init: (tripId: string, trip: Trip, simplifiedPoints: GpxPointSimplified[]) => void;
+  init: (tripId: string, trip: PublicTrip, simplifiedPoints: GpxPointSimplified[]) => void;
   setPaceParams: (p: Partial<PaceParams>) => void;
   computeDays: () => Promise<void>;
   loadDays: () => Promise<void>;
@@ -299,7 +299,7 @@ export const usePlanStore = create<PlanState>((set, get) => ({
     if (!tripId || !trip) return;
     set({ savingStartDate: true, error: null });
     try {
-      const data = await callApi<{ trip: Trip }>(`/api/trips/${tripId}`, {
+      const data = await callApi<{ trip: PublicTrip }>(`/api/trips/${tripId}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ start_date: dateISO }),

@@ -3,9 +3,20 @@
  * Client PostgreSQL partagé avec fallback en mémoire strictement réservé au développement local
  * (permet de tester l'application en dev si le conteneur Postgres n'est pas lancé).
  */
-import { Pool } from "pg";
+import { Pool, types } from "pg";
 import { computeDayDate } from "@/modules/planning/dayBuilder";
 import type { Trip, GpxPoint, Waypoint, TripDay, Poi, ChecklistItem, PaceParams } from "@/types";
+
+// node-postgres convertit par défaut les colonnes DATE (OID 1082) en objets
+// Date JS. Tout le code (Trip.start_date, TripDay.date, computeDayDate, le
+// rendu JSX) suppose une string "YYYY-MM-DD", comme le fallback mémoire le
+// fait déjà nativement. Sans ce recouvrement, un round-trip par une vraie
+// base Postgres produit un objet Date (crash au rendu JSX, crash dans
+// computeDayDate) et peut même décaler la date d'un jour au moment de la
+// sérialisation JSON, selon le fuseau horaire du serveur — une valeur DATE
+// n'a pourtant aucune notion de fuseau horaire. On désactive ce parsing pour
+// récupérer la chaîne brute exactement telle que stockée en base.
+types.setTypeParser(types.builtins.DATE, (value) => value);
 
 declare global {
   var _pgPool: Pool | undefined;

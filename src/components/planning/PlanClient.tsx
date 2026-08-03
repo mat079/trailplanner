@@ -19,10 +19,10 @@ import WeatherPanel from "@/components/planning/WeatherPanel";
 import NutritionPanel from "@/components/planning/NutritionPanel";
 import ChecklistPanel from "@/components/planning/ChecklistPanel";
 import { fr } from "@/i18n/fr";
-import type { GpxPointSimplified, Trip } from "@/types";
+import type { GpxPointSimplified, PublicTrip } from "@/types";
 
 interface PlanClientProps {
-  trip: Trip;
+  trip: PublicTrip;
   simplifiedPoints: GpxPointSimplified[];
 }
 

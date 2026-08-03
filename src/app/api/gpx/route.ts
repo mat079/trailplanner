@@ -20,6 +20,9 @@ import { haversineM } from "@/lib/geo";
 import type { GpxPoint, TripMetadata, ApiResponse, Trip } from "@/types";
 
 const MAX_SIZE_BYTES = 20 * 1024 * 1024; // 20 Mo
+// Généreux pour les ultra-traces (GR20 ≈ 25k points) tout en bornant le coût du
+// Douglas-Peucker récursif (simplify.ts), qui n'a pas de garde-fou de profondeur.
+const MAX_POINTS = 50_000;
 
 const parser = new XMLParser({
   ignoreAttributes: false,
@@ -58,6 +61,11 @@ function parseGpxPoints(xmlText: string): GpxPoint[] {
 
   if (allTrkpts.length < 2) {
     throw new Error("La trace GPX contient moins de 2 points.");
+  }
+  if (allTrkpts.length > MAX_POINTS) {
+    throw new Error(
+      `La trace GPX contient trop de points (${allTrkpts.length}, max ${MAX_POINTS}). Simplifiez la trace avant import.`
+    );
   }
 
   let distCumul = 0;

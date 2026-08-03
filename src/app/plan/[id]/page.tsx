@@ -5,6 +5,7 @@
 import { notFound } from "next/navigation";
 import { getTrip, getTripPoints } from "@/lib/db";
 import { douglasPeucker, adaptiveEpsilon } from "@/modules/gpx/simplify";
+import { toPublicTrip } from "@/types";
 import PlanClient from "@/components/planning/PlanClient";
 
 export const metadata = {
@@ -26,5 +27,5 @@ export default async function PlanPage({
   const eps = adaptiveEpsilon(points.length);
   const simplifiedPoints = douglasPeucker(points, eps);
 
-  return <PlanClient trip={trip} simplifiedPoints={simplifiedPoints} />;
+  return <PlanClient trip={toPublicTrip(trip)} simplifiedPoints={simplifiedPoints} />;
 }
