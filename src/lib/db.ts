@@ -79,6 +79,7 @@ export async function saveTrip(
     session_id: tripData.session_id,
     share_token: shareToken,
     name: tripData.name,
+    activity_type: tripData.activity_type,
     start_date: tripData.start_date ?? null,
     created_at: now,
     last_accessed_at: now,
@@ -88,14 +89,15 @@ export async function saveTrip(
 
   try {
     const res = await pool.query<Trip>(
-      `INSERT INTO trips (id, session_id, share_token, name, start_date, created_at, last_accessed_at, gpx_raw, metadata)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+      `INSERT INTO trips (id, session_id, share_token, name, activity_type, start_date, created_at, last_accessed_at, gpx_raw, metadata)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
        RETURNING *`,
       [
         trip.id,
         trip.session_id,
         trip.share_token,
         trip.name,
+        trip.activity_type,
         trip.start_date,
         trip.created_at,
         trip.last_accessed_at,

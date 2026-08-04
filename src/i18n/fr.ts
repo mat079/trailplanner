@@ -37,6 +37,15 @@ export const fr = {
     newTripBtn:      "Commencer",
   },
 
+  // ── Type d'activité ───────────────────────────────────────────────────────
+  activity: {
+    title:       "Type d'activité",
+    randonnee:   "Randonnée",
+    trail:       "Trail",
+    alpinisme:   "Alpinisme",
+    comingSoon:  "Bientôt disponible",
+  },
+
   // ── Trip overview ─────────────────────────────────────────────────────────
   trip: {
     distance:     "Distance totale",
@@ -106,6 +115,7 @@ export const fr = {
   // ── POI ───────────────────────────────────────────────────────────────────
   poi: {
     title:           "Commerces et eau",
+    titleWaterOnly:  "Points d'eau",
     loading:         "Recherche en cours…",
     noResult:        "Aucun commerce ou point d'eau trouvé sur cette section.",
     bakery:          "Boulangerie",
@@ -166,6 +176,9 @@ export const fr = {
     overrideCancel:  "Annuler",
     overrideReset:   "Revenir au calcul automatique",
     hint:            "Basé sur la distance, le dénivelé et le temps estimé de chaque étape.",
+    fuelEquivalent:  (gels: number, meals: number, drinks: number) =>
+      `≈ ${gels} gel${gels > 1 ? "s" : ""} OU ${meals} repas OU ${drinks} boisson${drinks > 1 ? "s" : ""} isotonique${drinks > 1 ? "s" : ""}`,
+    fuelHint:        "Équivalences alternatives (pas cumulatives) pour visualiser la quantité à emporter.",
   },
 
   // ── Checklist ─────────────────────────────────────────────────────────────

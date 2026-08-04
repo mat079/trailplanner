@@ -31,6 +31,8 @@ export default function PlanClient({ trip, simplifiedPoints }: PlanClientProps) 
   const days = usePlanStore((s) => s.days);
   const hoveredDayIndex = usePlanStore((s) => s.hoveredDayIndex);
   const setHoveredDay = usePlanStore((s) => s.setHoveredDay);
+  const hoveredPointDistM = usePlanStore((s) => s.hoveredPointDistM);
+  const setHoveredPoint = usePlanStore((s) => s.setHoveredPoint);
   const adjustBoundary = usePlanStore((s) => s.adjustBoundary);
   const waypoints = usePlanStore((s) => s.waypoints);
   const placingType = usePlanStore((s) => s.placingType);
@@ -98,6 +100,8 @@ export default function PlanClient({ trip, simplifiedPoints }: PlanClientProps) 
               placingType={placingType}
               onMapClick={addWaypointAt}
               poi={allPoi}
+              hoveredPointDistM={hoveredPointDistM}
+              onHoverPoint={setHoveredPoint}
             />
           </div>
           <ElevationProfile
@@ -106,6 +110,8 @@ export default function PlanClient({ trip, simplifiedPoints }: PlanClientProps) 
             hoveredDayIndex={hoveredDayIndex}
             onHoverDay={setHoveredDay}
             onAdjustBoundary={adjustBoundary}
+            hoveredPointDistM={hoveredPointDistM}
+            onHoverPoint={setHoveredPoint}
           />
         </div>
 

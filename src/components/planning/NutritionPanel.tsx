@@ -8,6 +8,7 @@ import { useState } from "react";
 import { usePlanStore } from "@/lib/planStore";
 import { Button } from "@/components/ui/button";
 import { fr } from "@/i18n/fr";
+import { estimateFuelUnits } from "@/modules/nutrition/carbsCalc";
 import type { IntensityZone } from "@/types";
 
 const INTENSITY_LABEL: Record<IntensityZone, string> = {
@@ -23,6 +24,8 @@ function NutritionSection({ dayIndex }: { dayIndex: number }) {
   const [editing, setEditing] = useState(false);
 
   if (!nutrition) return null;
+
+  const fuel = estimateFuelUnits(nutrition.total_carbs_g);
 
   const commit = () => {
     const value = Number(draft);
@@ -50,6 +53,10 @@ function NutritionSection({ dayIndex }: { dayIndex: number }) {
           {nutrition.total_carbs_g} g
         </dd>
       </dl>
+
+      <p className="text-xs mb-3" style={{ color: "var(--tp-text-muted)" }} title={fr.nutrition.fuelHint}>
+        {fr.nutrition.fuelEquivalent(fuel.gels, fuel.meals, fuel.drinks)}
+      </p>
 
       {nutrition.override_g_h !== null ? (
         <button
@@ -103,9 +110,11 @@ export default function NutritionPanel() {
 
   if (days.length === 0) return null;
 
+  const tripFuel = estimateFuelUnits(tripTotalG);
+
   return (
     <div>
-      <div className="flex items-center justify-between mb-2">
+      <div className="flex items-center justify-between mb-1">
         <h3 className="tp-heading text-sm" style={{ color: "var(--tp-text)" }}>
           {fr.nutrition.title}
         </h3>
@@ -113,6 +122,10 @@ export default function NutritionPanel() {
           {fr.nutrition.tripTotal} : {tripTotalG} g
         </span>
       </div>
+
+      <p className="text-xs mb-2" style={{ color: "var(--tp-text-muted)" }} title={fr.nutrition.fuelHint}>
+        {fr.nutrition.fuelEquivalent(tripFuel.gels, tripFuel.meals, tripFuel.drinks)}
+      </p>
 
       {error && (
         <p className="text-xs mb-2" style={{ color: "var(--tp-red)" }} role="alert">

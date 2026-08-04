@@ -5,6 +5,9 @@ import { useRouter } from "next/navigation";
 import { fr } from "@/i18n/fr";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import type { ActivityType } from "@/types";
+
+const SELECTABLE_ACTIVITY_TYPES: ActivityType[] = ["randonnee", "trail"];
 
 // ── Icônes inline ─────────────────────────────────────────────────────────────
 function IconMountain() {
@@ -98,6 +101,7 @@ export default function HomePage() {
   const [dragOver, setDragOver] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [activityType, setActivityType] = useState<ActivityType>("randonnee");
 
   const handleFile = useCallback(
     async (file: File) => {
@@ -116,6 +120,7 @@ export default function HomePage() {
       try {
         const formData = new FormData();
         formData.append("file", file);
+        formData.append("activity_type", activityType);
 
         let sessionId = localStorage.getItem("tp_session_id");
         if (!sessionId) {
@@ -142,7 +147,7 @@ export default function HomePage() {
         setUploading(false);
       }
     },
-    [router]
+    [router, activityType]
   );
 
   const onDrop = useCallback(
@@ -201,6 +206,47 @@ export default function HomePage() {
           <p className="text-lg" style={{ color: "var(--tp-text-muted)" }}>
             {fr.landing.subtitle}
           </p>
+        </div>
+
+        {/* Type d'activité */}
+        <div className="w-full max-w-lg animate-fade-in-up mb-4" style={{ animationDelay: "80ms" }}>
+          <p
+            className="text-xs font-semibold uppercase tracking-wide mb-2"
+            style={{ color: "var(--tp-text-muted)" }}
+          >
+            {fr.activity.title}
+          </p>
+          <div className="flex gap-2" role="radiogroup" aria-label={fr.activity.title}>
+            {SELECTABLE_ACTIVITY_TYPES.map((type) => (
+              <button
+                key={type}
+                type="button"
+                role="radio"
+                aria-checked={activityType === type}
+                onClick={() => setActivityType(type)}
+                className="flex-1 px-3 py-2 rounded-lg text-sm font-medium border transition-colors"
+                style={
+                  activityType === type
+                    ? { background: "var(--tp-forest-light)", color: "#fff", borderColor: "var(--tp-forest-light)" }
+                    : { background: "transparent", color: "var(--tp-text)", borderColor: "var(--tp-border)" }
+                }
+              >
+                {fr.activity[type]}
+              </button>
+            ))}
+            <button
+              type="button"
+              role="radio"
+              aria-checked={false}
+              disabled
+              title={fr.activity.comingSoon}
+              className="flex-1 px-3 py-2 rounded-lg text-sm font-medium border opacity-50 cursor-not-allowed flex flex-col items-center justify-center gap-0.5"
+              style={{ background: "transparent", color: "var(--tp-text-muted)", borderColor: "var(--tp-border)" }}
+            >
+              <span>{fr.activity.alpinisme}</span>
+              <span className="text-[10px] leading-none">{fr.activity.comingSoon}</span>
+            </button>
+          </div>
         </div>
 
         {/* Zone d'upload */}

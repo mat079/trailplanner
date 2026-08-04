@@ -16,6 +16,7 @@ interface PlanState {
   computing: boolean;
   error: string | null;
   hoveredDayIndex: number | null;
+  hoveredPointDistM: number | null;
   waypoints: Waypoint[];
   placingType: WaypointType | null;
   poiByDay: Record<number, Poi[]>;
@@ -41,6 +42,7 @@ interface PlanState {
   loadDays: () => Promise<void>;
   adjustBoundary: (boundaryIndex: number, newDistCumulM: number) => Promise<void>;
   setHoveredDay: (i: number | null) => void;
+  setHoveredPoint: (distM: number | null) => void;
   loadWaypoints: () => Promise<void>;
   setPlacingType: (t: WaypointType | null) => void;
   addWaypointAt: (lat: number, lon: number) => Promise<void>;
@@ -77,6 +79,7 @@ export const usePlanStore = create<PlanState>((set, get) => ({
   computing: false,
   error: null,
   hoveredDayIndex: null,
+  hoveredPointDistM: null,
   waypoints: [],
   placingType: null,
   poiByDay: {},
@@ -188,6 +191,7 @@ export const usePlanStore = create<PlanState>((set, get) => ({
   },
 
   setHoveredDay: (i) => set({ hoveredDayIndex: i }),
+  setHoveredPoint: (distM) => set({ hoveredPointDistM: distM }),
 
   loadWaypoints: async () => {
     const { tripId } = get();

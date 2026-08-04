@@ -40,3 +40,10 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# généré par postinstall (scripts/sync-maplibre-worker.mjs) depuis node_modules
+public/maplibre-gl-worker.mjs
+public/maplibre-gl-shared.mjs
+
+# fichiers GPX perso utilisés pour tester en local
+/gpx_tests/

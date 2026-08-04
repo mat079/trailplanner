@@ -3,11 +3,15 @@ import {
   estimateIntensityZone,
   computeDayNutrition,
   computeTripTotalCarbsG,
+  estimateFuelUnits,
   CARBS_PER_HOUR_BY_ZONE,
   CLIMB_RATE_TEMPO_M_H,
   CLIMB_RATE_THRESHOLD_M_H,
   FLAT_SPEED_TEMPO_KMH,
   FLAT_SPEED_THRESHOLD_KMH,
+  CARBS_PER_GEL_G,
+  CARBS_PER_MEAL_G,
+  CARBS_PER_DRINK_G,
 } from "@/modules/nutrition/carbsCalc";
 
 describe("estimateIntensityZone", () => {
@@ -91,5 +95,18 @@ describe("computeTripTotalCarbsG", () => {
 
   it("retourne 0 pour une sortie sans jour", () => {
     expect(computeTripTotalCarbsG([])).toBe(0);
+  });
+});
+
+describe("estimateFuelUnits", () => {
+  it("convertit un besoin en glucides en équivalences gels/repas/boissons", () => {
+    const estimate = estimateFuelUnits(300);
+    expect(estimate.gels).toBe(Math.round(300 / CARBS_PER_GEL_G));
+    expect(estimate.meals).toBe(Math.round(300 / CARBS_PER_MEAL_G));
+    expect(estimate.drinks).toBe(Math.round(300 / CARBS_PER_DRINK_G));
+  });
+
+  it("retourne 0 pour un besoin nul", () => {
+    expect(estimateFuelUnits(0)).toEqual({ gels: 0, meals: 0, drinks: 0 });
   });
 });

@@ -6,8 +6,8 @@
  * déplaçables (glisser-déposer) pour ajuster manuellement le découpage.
  */
 import { useEffect, useMemo, useRef, useState } from "react";
-import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
-import { dayColor } from "@/lib/utils";
+import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ReferenceDot, ResponsiveContainer } from "recharts";
+import { dayColor, nearestIndexByDistance } from "@/lib/utils";
 import { fr } from "@/i18n/fr";
 import type { DayWithStats, GpxPointSimplified } from "@/types";
 
@@ -17,6 +17,8 @@ interface ElevationProfileProps {
   hoveredDayIndex: number | null;
   onHoverDay: (i: number | null) => void;
   onAdjustBoundary: (boundaryIndex: number, newDistCumulM: number) => void;
+  hoveredPointDistM: number | null;
+  onHoverPoint: (distM: number | null) => void;
 }
 
 const MARGIN = { top: 10, right: 16, bottom: 24, left: 44 };
@@ -28,6 +30,8 @@ export default function ElevationProfile({
   hoveredDayIndex,
   onHoverDay,
   onAdjustBoundary,
+  hoveredPointDistM,
+  onHoverPoint,
 }: ElevationProfileProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [width, setWidth] = useState(0);
@@ -48,6 +52,13 @@ export default function ElevationProfile({
     () => points.map((p) => ({ distKm: p.dist_cumul / 1000, ele: Math.round(p.ele) })),
     [points]
   );
+  const hoveredPoint = useMemo(() => {
+    if (hoveredPointDistM === null || points.length === 0) return null;
+    const idx = nearestIndexByDistance(points, hoveredPointDistM);
+    const p = points[idx];
+    return p ? { distKm: p.dist_cumul / 1000, ele: Math.round(p.ele) } : null;
+  }, [hoveredPointDistM, points]);
+
   const totalKm = data.length > 0 ? data[data.length - 1].distKm : 0;
   const totalM = totalKm * 1000;
 
@@ -100,7 +111,16 @@ export default function ElevationProfile({
 
       <div ref={containerRef} className="relative w-full" style={{ height: 220 }}>
         <ResponsiveContainer width="100%" height="100%">
-          <AreaChart data={data} margin={MARGIN}>
+          <AreaChart
+            data={data}
+            margin={MARGIN}
+            onMouseMove={(state) => {
+              if (typeof state?.activeLabel === "number") {
+                onHoverPoint(state.activeLabel * 1000);
+              }
+            }}
+            onMouseLeave={() => onHoverPoint(null)}
+          >
             <defs>
               <linearGradient id="dayGradient" x1="0" y1="0" x2="1" y2="0">
                 {days.length > 0 ? (
@@ -141,6 +161,17 @@ export default function ElevationProfile({
               formatter={(v) => [`${v} m`, fr.elevation.altitude] as [string, string]}
             />
             <Area type="monotone" dataKey="ele" stroke="url(#dayGradient)" fill="url(#dayGradient)" fillOpacity={0.25} strokeWidth={2} isAnimationActive={false} />
+            {hoveredPoint && (
+              <ReferenceDot
+                x={hoveredPoint.distKm}
+                y={hoveredPoint.ele}
+                r={5}
+                fill="var(--tp-text)"
+                stroke="var(--tp-slate)"
+                strokeWidth={2}
+                ifOverflow="visible"
+              />
+            )}
           </AreaChart>
         </ResponsiveContainer>
 

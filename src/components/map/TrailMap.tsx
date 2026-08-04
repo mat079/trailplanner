@@ -14,6 +14,7 @@ import {
   Marker,
   Popup,
   LngLatBounds,
+  setWorkerUrl,
   type MapMouseEvent,
   type GeoJSONSource,
   type StyleSpecification,
@@ -23,6 +24,16 @@ import { dayColor, nearestIndexByDistance, waypointStyle, poiStyle } from "@/lib
 import { fr } from "@/i18n/fr";
 import type { DayWithStats, GpxPointSimplified, Poi, Waypoint, WaypointType } from "@/types";
 
+// MapLibre calcule l'URL de son worker en résolvant un chemin relatif à partir
+// de l'URL de son propre module JS. Turbopack (Next.js 16) hash et déplace ce
+// fichier worker vers /_next/static/media/ sans que MapLibre en soit informé :
+// l'URL calculée ne pointe donc jamais vers un fichier réel. Le worker ne se
+// charge jamais (aucune erreur console — l'échec est silencieux), et toute
+// source GeoJSON (le tracé GPX) reste bloquée indéfiniment en chargement, sans
+// jamais se dessiner. On pointe explicitement vers une copie statique stable
+// (voir scripts/sync-maplibre-worker.mjs, exécuté après chaque npm install).
+setWorkerUrl("/maplibre-gl-worker.mjs");
+
 interface TrailMapProps {
   points: GpxPointSimplified[];
   days: DayWithStats[];
@@ -31,6 +42,8 @@ interface TrailMapProps {
   placingType?: WaypointType | null;
   onMapClick?: (lat: number, lon: number) => void;
   poi?: Poi[];
+  hoveredPointDistM: number | null;
+  onHoverPoint: (distM: number | null) => void;
 }
 
 const OSM_STYLE: StyleSpecification = {
@@ -54,12 +67,21 @@ export default function TrailMap({
   placingType = null,
   onMapClick,
   poi = [],
+  hoveredPointDistM,
+  onHoverPoint,
 }: TrailMapProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<MapLibreMap | null>(null);
   const dayMarkersRef = useRef<Marker[]>([]);
   const waypointMarkersRef = useRef<Marker[]>([]);
   const poiMarkersRef = useRef<Marker[]>([]);
+  const hoverMarkerRef = useRef<Marker | null>(null);
+  const pointsRef = useRef(points);
+  const lastHoveredIdxRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    pointsRef.current = points;
+  }, [points]);
   // "load" ne se déclenche qu'une seule fois par instance de carte : on le capture
   // dans un état partagé plutôt que de laisser chaque effet enregistrer son propre
   // map.once("load", ...), qui ne se déclencherait jamais si isStyleLoaded() est
@@ -242,6 +264,70 @@ export default function TrailMap({
       map.off("click", handler);
     };
   }, [placingType, onMapClick]);
+
+  // Survol de la carte → point le plus proche (synchronisation avec le profil altimétrique)
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map) return;
+
+    const handleMove = (e: MapMouseEvent) => {
+      const pts = pointsRef.current;
+      if (pts.length === 0) return;
+      let bestIdx = 0;
+      let bestDistSq = Infinity;
+      for (let i = 0; i < pts.length; i++) {
+        const dLat = pts[i].lat - e.lngLat.lat;
+        const dLon = pts[i].lon - e.lngLat.lng;
+        const distSq = dLat * dLat + dLon * dLon;
+        if (distSq < bestDistSq) {
+          bestDistSq = distSq;
+          bestIdx = i;
+        }
+      }
+      onHoverPoint(pts[bestIdx].dist_cumul);
+    };
+    const handleOut = () => onHoverPoint(null);
+
+    map.on("mousemove", handleMove);
+    map.on("mouseout", handleOut);
+    return () => {
+      map.off("mousemove", handleMove);
+      map.off("mouseout", handleOut);
+    };
+  }, [onHoverPoint]);
+
+  // Marqueur du point survolé (sur la carte ou sur le profil altimétrique)
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !styleLoaded) return;
+
+    if (hoveredPointDistM === null || points.length === 0) {
+      hoverMarkerRef.current?.remove();
+      hoverMarkerRef.current = null;
+      lastHoveredIdxRef.current = null;
+      return;
+    }
+
+    const idx = nearestIndexByDistance(points, hoveredPointDistM);
+    if (idx === lastHoveredIdxRef.current && hoverMarkerRef.current) return;
+    lastHoveredIdxRef.current = idx;
+    const p = points[idx];
+    if (!p) return;
+
+    if (!hoverMarkerRef.current) {
+      const el = document.createElement("div");
+      el.style.width = "12px";
+      el.style.height = "12px";
+      el.style.borderRadius = "50%";
+      el.style.background = "var(--tp-text)";
+      el.style.border = "2px solid var(--tp-slate)";
+      el.style.boxShadow = "0 1px 4px rgba(0,0,0,0.6)";
+      el.style.pointerEvents = "none";
+      hoverMarkerRef.current = new Marker({ element: el }).setLngLat([p.lon, p.lat]).addTo(map);
+    } else {
+      hoverMarkerRef.current.setLngLat([p.lon, p.lat]);
+    }
+  }, [hoveredPointDistM, points, styleLoaded]);
 
   // Mise en avant du jour survolé
   useEffect(() => {

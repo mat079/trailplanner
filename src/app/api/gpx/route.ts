@@ -17,9 +17,12 @@ import { XMLParser } from "fast-xml-parser";
 import { saveTrip } from "@/lib/db";
 import { douglasPeucker } from "@/modules/gpx/simplify";
 import { haversineM } from "@/lib/geo";
-import type { GpxPoint, TripMetadata, ApiResponse, Trip } from "@/types";
+import type { GpxPoint, TripMetadata, ApiResponse, Trip, ActivityType } from "@/types";
 
 const MAX_SIZE_BYTES = 20 * 1024 * 1024; // 20 Mo
+// "alpinisme" existe dans le schéma et le type ActivityType (roadmap produit) mais
+// n'est pas encore proposé à l'upload : voir ActivitySelector côté UI.
+const VALID_ACTIVITY_TYPES: ActivityType[] = ["randonnee", "trail", "alpinisme"];
 // Généreux pour les ultra-traces (GR20 ≈ 25k points) tout en bornant le coût du
 // Douglas-Peucker récursif (simplify.ts), qui n'a pas de garde-fou de profondeur.
 const MAX_POINTS = 50_000;
@@ -138,6 +141,10 @@ export async function POST(req: NextRequest): Promise<NextResponse<ApiResponse<P
     const formData = await req.formData();
     const file = formData.get("file") as File | null;
     const sessionId = formData.get("session_id") as string | null;
+    const activityTypeRaw = formData.get("activity_type") as string | null;
+    const activityType: ActivityType = VALID_ACTIVITY_TYPES.includes(activityTypeRaw as ActivityType)
+      ? (activityTypeRaw as ActivityType)
+      : "randonnee";
 
     if (!file) {
       return NextResponse.json({ ok: false, error: "Aucun fichier reçu." }, { status: 400 });
@@ -174,6 +181,7 @@ export async function POST(req: NextRequest): Promise<NextResponse<ApiResponse<P
       {
         session_id: sessionId,
         name: tripName,
+        activity_type: activityType,
         start_date: null,
         gpx_raw: xmlText,
         metadata,

@@ -5,11 +5,14 @@
 
 // ── Trip ──────────────────────────────────────────────────────────────────────
 
+export type ActivityType = "randonnee" | "trail" | "alpinisme";
+
 export interface Trip {
   id: string;
   session_id: string;
   share_token: string;
   name: string;
+  activity_type: ActivityType;
   start_date: string | null;     // ISO date "YYYY-MM-DD"
   created_at: string;
   last_accessed_at: string;

@@ -30,6 +30,7 @@ describe("lib/db.ts fallback logic", () => {
       {
         session_id: "test-sess",
         name: "Dev Trip",
+        activity_type: "randonnee",
         start_date: null,
         gpx_raw: "<gpx></gpx>",
         metadata: dummyMetadata,
@@ -53,6 +54,7 @@ describe("lib/db.ts fallback logic", () => {
         {
           session_id: "prod-sess",
           name: "Prod Trip",
+          activity_type: "randonnee",
           start_date: null,
           gpx_raw: "<gpx></gpx>",
           metadata: dummyMetadata,
@@ -74,6 +76,7 @@ describe("lib/db.ts fallback logic", () => {
       session_id: "s1",
       share_token: "t1",
       name: "Old Trip",
+      activity_type: "randonnee",
       start_date: null,
       created_at: oldDate,
       last_accessed_at: oldDate,
@@ -86,6 +89,7 @@ describe("lib/db.ts fallback logic", () => {
       session_id: "s2",
       share_token: "t2",
       name: "Recent Trip",
+      activity_type: "randonnee",
       start_date: null,
       created_at: recentDate,
       last_accessed_at: recentDate,

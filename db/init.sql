@@ -11,6 +11,7 @@ CREATE TABLE IF NOT EXISTS trips (
   session_id       UUID NOT NULL,
   share_token      UUID UNIQUE DEFAULT gen_random_uuid(),
   name             TEXT NOT NULL DEFAULT 'Ma sortie',
+  activity_type    TEXT NOT NULL DEFAULT 'randonnee' CHECK (activity_type IN ('randonnee', 'trail', 'alpinisme')),
   start_date       DATE,
   created_at       TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
   last_accessed_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),

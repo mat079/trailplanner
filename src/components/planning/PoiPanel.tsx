@@ -17,8 +17,14 @@ function PoiSection({ dayIndex }: { dayIndex: number }) {
   const stale = usePlanStore((s) => s.poiStale[dayIndex]) ?? false;
   const error = usePlanStore((s) => s.poiError[dayIndex]);
   const loadPoi = usePlanStore((s) => s.loadPoi);
+  const isTrail = usePlanStore((s) => s.trip?.activity_type) === "trail";
 
-  const grouped = poi.reduce<Record<string, Poi[]>>((acc, p) => {
+  // En trail, seuls les points d'eau sont pertinents : les commerces (boulangerie,
+  // supermarché, épicerie) supposent un accès en cours de course qui n'a pas de sens
+  // sur ce type d'activité — seul le besoin en glucides/gels compte (cf. NutritionPanel).
+  const visiblePoi = isTrail ? poi.filter((p) => p.type === "water") : poi;
+
+  const grouped = visiblePoi.reduce<Record<string, Poi[]>>((acc, p) => {
     (acc[p.type] ??= []).push(p);
     return acc;
   }, {});
@@ -46,7 +52,7 @@ function PoiSection({ dayIndex }: { dayIndex: number }) {
         </p>
       )}
 
-      {loading && poi.length === 0 && (
+      {loading && visiblePoi.length === 0 && (
         <p className="text-xs" style={{ color: "var(--tp-text-muted)" }}>
           {fr.poi.loading}
         </p>
@@ -58,7 +64,7 @@ function PoiSection({ dayIndex }: { dayIndex: number }) {
         </p>
       )}
 
-      {!loading && !error && poi.length === 0 && (
+      {!loading && !error && visiblePoi.length === 0 && (
         <p className="text-xs" style={{ color: "var(--tp-text-muted)" }}>
           {fr.poi.noResult}
         </p>
@@ -87,6 +93,7 @@ function PoiSection({ dayIndex }: { dayIndex: number }) {
 
 export default function PoiPanel() {
   const days = usePlanStore((s) => s.days);
+  const isTrail = usePlanStore((s) => s.trip?.activity_type) === "trail";
 
   if (days.length === 0) return null;
 
@@ -94,7 +101,7 @@ export default function PoiPanel() {
     <div>
       <div className="flex items-center justify-between mb-2">
         <h3 className="tp-heading text-sm" style={{ color: "var(--tp-text)" }}>
-          {fr.poi.title}
+          {isTrail ? fr.poi.titleWaterOnly : fr.poi.title}
         </h3>
         <span className="text-xs" style={{ color: "var(--tp-text-muted)" }}>
           {fr.poi.bufferLabel} : {DEFAULT_BUFFER_M} {fr.poi.bufferUnit}

@@ -73,3 +73,30 @@ export function computeDayNutrition(
 export function computeTripTotalCarbsG(days: DayNutrition[]): number {
   return days.reduce((sum, d) => sum + d.total_carbs_g, 0);
 }
+
+// ── Équivalences en unités de ravitaillement ────────────────────────────────
+// Grammages usuels en nutrition sportive (valeurs indicatives, à ajuster selon
+// les produits réellement emportés) : un gel énergétique standard, un repas
+// solide (barre dense, sandwich...), une boisson isotonique type bidon 500 ml.
+export const CARBS_PER_GEL_G = 25;
+export const CARBS_PER_MEAL_G = 60;
+export const CARBS_PER_DRINK_G = 35;
+
+export interface FuelEstimate {
+  gels: number;
+  meals: number;
+  drinks: number;
+}
+
+/**
+ * Convertit un besoin en glucides (g) en équivalences de ravitaillement.
+ * Les trois valeurs sont des alternatives indépendantes (« si tout en gels »,
+ * « si tout en repas », etc.), pas des quantités à additionner.
+ */
+export function estimateFuelUnits(totalCarbsG: number): FuelEstimate {
+  return {
+    gels: Math.round(totalCarbsG / CARBS_PER_GEL_G),
+    meals: Math.round(totalCarbsG / CARBS_PER_MEAL_G),
+    drinks: Math.round(totalCarbsG / CARBS_PER_DRINK_G),
+  };
+}
