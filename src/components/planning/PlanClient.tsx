@@ -74,6 +74,9 @@ export default function PlanClient({ trip, simplifiedPoints }: PlanClientProps) 
             />
           </label>
           <Button type="button" variant="outline" size="sm" asChild>
+            <Link href="/">{fr.nav.newTrip}</Link>
+          </Button>
+          <Button type="button" variant="outline" size="sm" asChild>
             <Link href={`/plan/${currentTrip.id}/print`}>{fr.nav.print}</Link>
           </Button>
           <span className="tp-badge tp-badge-green text-xs">V1 · Bêta</span>
@@ -102,6 +105,7 @@ export default function PlanClient({ trip, simplifiedPoints }: PlanClientProps) 
               poi={allPoi}
               hoveredPointDistM={hoveredPointDistM}
               onHoverPoint={setHoveredPoint}
+              onAdjustBoundary={adjustBoundary}
             />
           </div>
           <ElevationProfile

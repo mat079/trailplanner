@@ -313,6 +313,17 @@ body {
 }
 
 /* ============================================================
+   Popups MapLibre (marqueurs jour/waypoint/POI)
+   Le fond des popups reste blanc (styles par défaut de MapLibre) mais leur
+   contenu hérite de `color: var(--tp-text)` (quasi-blanc, thème sombre) via
+   `body` — texte blanc sur fond blanc, illisible. On fixe une couleur sombre
+   dans le popup uniquement, sans toucher au thème global de l'app.
+   ============================================================ */
+.maplibregl-popup-content {
+  color: #1e293b;
+}
+
+/* ============================================================
    Scrollbar (webkit)
    ============================================================ */
 ::-webkit-scrollbar { width: 6px; height: 6px; }

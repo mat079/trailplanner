@@ -42,6 +42,22 @@ export function poiStyle(type: "bakery" | "supermarket" | "grocery" | "water") {
   return POI_STYLE[type];
 }
 
+const WATER_SUBTYPE_STYLE: Record<
+  "eau_potable" | "fontaine" | "riviere" | "lac" | "indetermine",
+  { icon: string; color: string }
+> = {
+  eau_potable: { icon: "🚰", color: "#0891b2" },
+  fontaine:    { icon: "⛲", color: "#0891b2" },
+  riviere:     { icon: "🌊", color: "#0891b2" },
+  lac:         { icon: "🏞️", color: "#0891b2" },
+  indetermine: { icon: "💧", color: "#0891b2" },
+};
+
+/** Style d'un point d'eau selon son sous-type (icône plus précise que le générique `poiStyle("water")`). */
+export function waterSubtypeStyle(subtype: "eau_potable" | "fontaine" | "riviere" | "lac" | "indetermine") {
+  return WATER_SUBTYPE_STYLE[subtype];
+}
+
 const WEATHER_ICON: Record<
   "clear" | "partly_cloudy" | "cloudy" | "rain" | "heavy_rain" | "snow" | "storm" | "fog",
   string

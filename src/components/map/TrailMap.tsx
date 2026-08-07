@@ -20,7 +20,7 @@ import {
   type StyleSpecification,
 } from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
-import { dayColor, nearestIndexByDistance, waypointStyle, poiStyle } from "@/lib/utils";
+import { dayColor, nearestIndexByDistance, waypointStyle, poiStyle, waterSubtypeStyle } from "@/lib/utils";
 import { fr } from "@/i18n/fr";
 import type { DayWithStats, GpxPointSimplified, Poi, Waypoint, WaypointType } from "@/types";
 
@@ -44,6 +44,23 @@ interface TrailMapProps {
   poi?: Poi[];
   hoveredPointDistM: number | null;
   onHoverPoint: (distM: number | null) => void;
+  onAdjustBoundary?: (boundaryIndex: number, newDistCumulM: number) => void;
+}
+
+/** Point le plus proche d'une coordonnée lat/lon (distance euclidienne en degrés, suffisant à l'échelle d'une trace). */
+function nearestPointByLatLon<T extends { lat: number; lon: number }>(points: T[], lat: number, lon: number): T {
+  let best = points[0];
+  let bestDistSq = Infinity;
+  for (const p of points) {
+    const dLat = p.lat - lat;
+    const dLon = p.lon - lon;
+    const distSq = dLat * dLat + dLon * dLon;
+    if (distSq < bestDistSq) {
+      bestDistSq = distSq;
+      best = p;
+    }
+  }
+  return best;
 }
 
 const OSM_STYLE: StyleSpecification = {
@@ -69,6 +86,7 @@ export default function TrailMap({
   poi = [],
   hoveredPointDistM,
   onHoverPoint,
+  onAdjustBoundary,
 }: TrailMapProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<MapLibreMap | null>(null);
@@ -167,21 +185,36 @@ export default function TrailMap({
 
     dayMarkersRef.current.forEach((m) => m.remove());
     dayMarkersRef.current = [];
+    const bivouacStyle = waypointStyle("bivouac");
     for (let i = 0; i < days.length - 1; i++) {
       const idx = nearestIndexByDistance(points, days[i].end_dist_m);
       const p = points[idx];
       if (!p) continue;
       const el = document.createElement("div");
-      el.style.width = "14px";
-      el.style.height = "14px";
+      el.style.width = "30px";
+      el.style.height = "30px";
       el.style.borderRadius = "50%";
+      el.style.display = "flex";
+      el.style.alignItems = "center";
+      el.style.justifyContent = "center";
+      el.style.fontSize = "16px";
       el.style.background = "var(--tp-slate)";
-      el.style.border = `2px solid ${dayColor(i + 1)}`;
-      el.style.boxShadow = "0 1px 4px rgba(0,0,0,0.5)";
-      const marker = new Marker({ element: el })
+      el.style.border = `3px solid ${dayColor(i + 1)}`;
+      el.style.boxShadow = "0 1px 4px rgba(0,0,0,0.6)";
+      el.style.cursor = onAdjustBoundary ? "grab" : "default";
+      el.textContent = bivouacStyle.icon;
+      const marker = new Marker({ element: el, draggable: !!onAdjustBoundary })
         .setLngLat([p.lon, p.lat])
-        .setPopup(new Popup({ offset: 10, closeButton: false }).setText(fr.planning.dayLabel(i + 2)))
+        .setPopup(new Popup({ offset: 16, closeButton: false }).setText(fr.planning.dayLabel(i + 2)))
         .addTo(map);
+      if (onAdjustBoundary) {
+        const boundaryIndex = i;
+        marker.on("dragend", () => {
+          const { lat, lng } = marker.getLngLat();
+          const nearest = nearestPointByLatLon(pointsRef.current, lat, lng);
+          onAdjustBoundary(boundaryIndex, nearest.dist_cumul);
+        });
+      }
       dayMarkersRef.current.push(marker);
     }
 
@@ -190,7 +223,7 @@ export default function TrailMap({
       new LngLatBounds([points[0].lon, points[0].lat], [points[0].lon, points[0].lat])
     );
     map.fitBounds(bounds, { padding: 40, duration: 0 });
-  }, [points, days, styleLoaded]);
+  }, [points, days, styleLoaded, onAdjustBoundary]);
 
   // Marqueurs des points d'étape
   useEffect(() => {
@@ -229,7 +262,9 @@ export default function TrailMap({
     poiMarkersRef.current.forEach((m) => m.remove());
     poiMarkersRef.current = [];
     for (const p of poi) {
-      const style = poiStyle(p.type);
+      const isWater = p.type === "water";
+      const style = isWater ? waterSubtypeStyle(p.water_subtype ?? "indetermine") : poiStyle(p.type);
+      const label = isWater ? fr.poi.waterSubtype[p.water_subtype ?? "indetermine"] : fr.poi[p.type];
       const el = document.createElement("div");
       el.style.width = "20px";
       el.style.height = "20px";
@@ -245,7 +280,7 @@ export default function TrailMap({
       el.textContent = style.icon;
       const marker = new Marker({ element: el })
         .setLngLat([p.lon, p.lat])
-        .setPopup(new Popup({ offset: 12, closeButton: false }).setText(p.name || fr.poi[p.type]))
+        .setPopup(new Popup({ offset: 12, closeButton: false }).setText(p.name || label))
         .addTo(map);
       poiMarkersRef.current.push(marker);
     }
@@ -273,18 +308,7 @@ export default function TrailMap({
     const handleMove = (e: MapMouseEvent) => {
       const pts = pointsRef.current;
       if (pts.length === 0) return;
-      let bestIdx = 0;
-      let bestDistSq = Infinity;
-      for (let i = 0; i < pts.length; i++) {
-        const dLat = pts[i].lat - e.lngLat.lat;
-        const dLon = pts[i].lon - e.lngLat.lng;
-        const distSq = dLat * dLat + dLon * dLon;
-        if (distSq < bestDistSq) {
-          bestDistSq = distSq;
-          bestIdx = i;
-        }
-      }
-      onHoverPoint(pts[bestIdx].dist_cumul);
+      onHoverPoint(nearestPointByLatLon(pts, e.lngLat.lat, e.lngLat.lng).dist_cumul);
     };
     const handleOut = () => onHoverPoint(null);
 

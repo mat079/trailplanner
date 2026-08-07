@@ -122,6 +122,13 @@ export const fr = {
     supermarket:     "Supermarché",
     grocery:         "Épicerie",
     water:           "Point d'eau",
+    waterSubtype: {
+      eau_potable:   "Fontaine d'eau potable",
+      fontaine:      "Fontaine",
+      riviere:       "Rivière",
+      lac:           "Lac",
+      indetermine:   "Point d'eau (type indéterminé)",
+    },
     sectionLabel:    (n: number) => `Section jour ${n}`,
     attribution:     "Données © OpenStreetMap contributors",
     bufferLabel:     "Rayon de recherche",

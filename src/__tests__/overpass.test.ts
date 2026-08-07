@@ -3,6 +3,7 @@ import {
   decimatePoints,
   buildOverpassQuery,
   classifyElement,
+  classifyWaterSubtype,
   parseOverpassResponse,
   fetchOverpassPoi,
   DEFAULT_BUFFER_M,
@@ -37,6 +38,16 @@ describe("buildOverpassQuery", () => {
     expect(q).toContain('"amenity"="drinking_water"');
     expect(q).toContain('"natural"="spring"');
     expect(q).toContain('"amenity"="fountain"');
+    expect(q).toContain('"waterway"="river"');
+    expect(q).toContain('"waterway"="stream"');
+    expect(q).toContain('"natural"="water"');
+  });
+
+  it("utilise nwr (node/way/relation) et out center, pas node/out body (rivières et lacs sont des ways)", () => {
+    const q = buildOverpassQuery([{ lat: 45.05, lon: 6.03 }]);
+    expect(q).toContain("nwr[");
+    expect(q).not.toContain("\n  node[");
+    expect(q).toContain("out center;");
   });
 
   it("utilise le buffer par défaut (200m) si non précisé", () => {
@@ -89,6 +100,9 @@ describe("classifyElement", () => {
     expect(classifyElement({ amenity: "drinking_water" })).toBe("water");
     expect(classifyElement({ natural: "spring" })).toBe("water");
     expect(classifyElement({ amenity: "fountain" })).toBe("water");
+    expect(classifyElement({ waterway: "river" })).toBe("water");
+    expect(classifyElement({ waterway: "stream" })).toBe("water");
+    expect(classifyElement({ natural: "water" })).toBe("water");
   });
 
   it("retourne null pour un tag non pertinent", () => {
@@ -98,20 +112,56 @@ describe("classifyElement", () => {
   });
 });
 
+describe("classifyWaterSubtype", () => {
+  it("distingue eau potable, fontaine, rivière, lac", () => {
+    expect(classifyWaterSubtype({ amenity: "drinking_water" })).toBe("eau_potable");
+    expect(classifyWaterSubtype({ amenity: "fountain" })).toBe("fontaine");
+    expect(classifyWaterSubtype({ natural: "spring" })).toBe("fontaine");
+    expect(classifyWaterSubtype({ waterway: "river" })).toBe("riviere");
+    expect(classifyWaterSubtype({ waterway: "stream" })).toBe("riviere");
+    expect(classifyWaterSubtype({ natural: "water" })).toBe("lac");
+  });
+
+  it("retombe sur indeterminé pour des tags eau non reconnus", () => {
+    expect(classifyWaterSubtype({ amenity: "something_else" })).toBe("indetermine");
+  });
+});
+
 describe("parseOverpassResponse", () => {
   it("parse les nodes avec tags reconnus et ignore le reste", () => {
     const parsed = parseOverpassResponse({
       elements: [
         { type: "node", id: 1, lat: 45.05, lon: 6.03, tags: { shop: "bakery", name: "Boulangerie du Col" } },
         { type: "node", id: 2, lat: 45.06, lon: 6.04, tags: { amenity: "restaurant" } }, // non pertinent
-        { type: "way", id: 3, tags: { shop: "bakery" } }, // pas un node
+        { type: "way", id: 3, tags: { shop: "bakery" } }, // pas de coordonnées (ni lat/lon ni center)
         { type: "node", id: 4, lat: 45.07, lon: 6.05, tags: { natural: "spring" } }, // pas de name
       ],
     });
 
     expect(parsed).toHaveLength(2);
-    expect(parsed[0]).toEqual({ type: "bakery", name: "Boulangerie du Col", lat: 45.05, lon: 6.03, osm_id: 1 });
-    expect(parsed[1]).toEqual({ type: "water", name: null, lat: 45.07, lon: 6.05, osm_id: 4 });
+    expect(parsed[0]).toEqual({
+      type: "bakery", name: "Boulangerie du Col", lat: 45.05, lon: 6.03, osm_id: 1, water_subtype: null,
+    });
+    expect(parsed[1]).toEqual({
+      type: "water", name: null, lat: 45.07, lon: 6.05, osm_id: 4, water_subtype: "fontaine",
+    });
+  });
+
+  it("utilise center:{lat,lon} pour les ways/relations (rivières, lacs)", () => {
+    const parsed = parseOverpassResponse({
+      elements: [
+        { type: "way", id: 10, center: { lat: 45.1, lon: 6.1 }, tags: { waterway: "river", name: "La Romanche" } },
+        { type: "relation", id: 11, center: { lat: 45.2, lon: 6.2 }, tags: { natural: "water", name: "Lac Blanc" } },
+      ],
+    });
+
+    expect(parsed).toHaveLength(2);
+    expect(parsed[0]).toEqual({
+      type: "water", name: "La Romanche", lat: 45.1, lon: 6.1, osm_id: 10, water_subtype: "riviere",
+    });
+    expect(parsed[1]).toEqual({
+      type: "water", name: "Lac Blanc", lat: 45.2, lon: 6.2, osm_id: 11, water_subtype: "lac",
+    });
   });
 
   it("gère une réponse sans éléments", () => {
@@ -135,7 +185,7 @@ describe("fetchOverpassPoi", () => {
     vi.stubGlobal("fetch", mockFetch);
 
     const result = await fetchOverpassPoi([{ lat: 45.05, lon: 6.03 }]);
-    expect(result).toEqual([{ type: "bakery", name: null, lat: 45.05, lon: 6.03, osm_id: 42 }]);
+    expect(result).toEqual([{ type: "bakery", name: null, lat: 45.05, lon: 6.03, osm_id: 42, water_subtype: null }]);
     expect(mockFetch).toHaveBeenCalledWith(
       expect.stringContaining("overpass-api.de"),
       expect.objectContaining({ method: "POST" })

@@ -101,6 +101,47 @@ describe("buildDays — cas limites", () => {
   });
 });
 
+describe("buildDays — points de coupure obligatoires (bivouacs)", () => {
+  // 40 km plats, 5 km/h, budget 8h/j → tiendrait en 1 seul jour sans coupure obligatoire.
+  const points: GpxPoint[] = [];
+  for (let i = 0; i <= 40; i++) {
+    points.push(makePoint(i, i * 1000, 1000));
+  }
+  const params: PaceParams = { speed_kmh: 5, elev_coeff_min_per_100m: 12, hours_per_day: 8 };
+
+  it("force une fin de journée exactement au point obligatoire même si le budget horaire le permettrait de continuer", () => {
+    const days = buildDays(points, params, [15]);
+    expect(days.length).toBe(2);
+    expect(days[0].end_point_index).toBe(15);
+    expect(days[1].start_point_index).toBe(15);
+    expect(days[1].end_point_index).toBe(40);
+  });
+
+  it("gère plusieurs points obligatoires, dans le désordre et avec doublons", () => {
+    const days = buildDays(points, params, [30, 10, 10, 20]);
+    expect(days.map((d) => d.end_point_index)).toEqual([10, 20, 30, 40]);
+  });
+
+  it("le budget horaire peut toujours terminer une journée avant le prochain point obligatoire", () => {
+    // Budget très court : le découpage horaire coupe bien avant le point obligatoire à 40.
+    const tight: PaceParams = { speed_kmh: 5, elev_coeff_min_per_100m: 12, hours_per_day: 0.5 };
+    const days = buildDays(points, tight, [40]);
+    expect(days.length).toBeGreaterThan(1);
+    expect(days[0].end_point_index).toBeLessThan(40);
+  });
+
+  it("ignore les points de coupure hors bornes (0, dernier point, négatif, au-delà)", () => {
+    const days = buildDays(points, params, [0, 40, -5, 999]);
+    expect(days.length).toBe(1);
+    expect(days[0].end_point_index).toBe(40);
+  });
+
+  it("sans point de coupure, se comporte comme avant (rétrocompatible)", () => {
+    const days = buildDays(points, params);
+    expect(days.length).toBe(1);
+  });
+});
+
 describe("findNearestPointIndex", () => {
   const points: GpxPoint[] = [0, 1000, 2000, 3000, 4000].map((d, i) => makePoint(i, d, 1000));
 

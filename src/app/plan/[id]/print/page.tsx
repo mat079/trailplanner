@@ -16,7 +16,7 @@ import { DEFAULT_PACE_PARAMS } from "@/modules/planning/paceModel";
 import { computeAllDayNutrition } from "@/lib/nutritionSummary";
 import { resolveDayWeatherLocation } from "@/lib/weatherLocation";
 import { fetchDayWeather } from "@/modules/weather/openMeteo";
-import { waypointStyle, poiStyle, weatherIcon } from "@/lib/utils";
+import { waypointStyle, poiStyle, waterSubtypeStyle, weatherIcon } from "@/lib/utils";
 import { fr } from "@/i18n/fr";
 import PrintButton from "@/components/planning/PrintButton";
 import type { ChecklistCategory, DayWeather, Poi, TripDay, Waypoint } from "@/types";
@@ -223,12 +223,17 @@ export default async function PrintPage({
                       <p className="tp-label mb-1">{fr.poi.title}</p>
                       {poi.length > 0 ? (
                         <ul style={{ color: "var(--tp-text)" }}>
-                          {poi.map((p) => (
-                            <li key={p.id}>
-                              <span aria-hidden="true">{poiStyle(p.type).icon}</span> {fr.poi[p.type]}
-                              {p.name ? ` — ${p.name}` : ""}
-                            </li>
-                          ))}
+                          {poi.map((p) => {
+                            const isWater = p.type === "water";
+                            const style = isWater ? waterSubtypeStyle(p.water_subtype ?? "indetermine") : poiStyle(p.type);
+                            const label = isWater ? fr.poi.waterSubtype[p.water_subtype ?? "indetermine"] : fr.poi[p.type];
+                            return (
+                              <li key={p.id}>
+                                <span aria-hidden="true">{style.icon}</span> {label}
+                                {p.name ? ` — ${p.name}` : ""}
+                              </li>
+                            );
+                          })}
                         </ul>
                       ) : (
                         <p style={{ color: "var(--tp-text-muted)" }}>{fr.pdf.poiNotCached}</p>

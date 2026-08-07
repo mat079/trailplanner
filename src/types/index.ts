@@ -125,11 +125,16 @@ export interface Waypoint {
 
 export type PoiType = "bakery" | "grocery" | "water" | "supermarket";
 
+/** Sous-type d'un POI de type "water", pour indiquer au randonneur à quoi s'attendre. */
+export type WaterSubtype = "eau_potable" | "fontaine" | "riviere" | "lac" | "indetermine";
+
 export interface Poi {
   id?: number;
   trip_id?: string;
   day_index: number | null;
   type: PoiType;
+  /** Non-null uniquement lorsque type === "water". */
+  water_subtype: WaterSubtype | null;
   name: string | null;
   lat: number;
   lon: number;

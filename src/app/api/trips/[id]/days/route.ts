@@ -7,12 +7,13 @@
  * PATCH : ajustement manuel d'un point de coupure (snap au point brut le plus proche).
  */
 import { NextRequest, NextResponse } from "next/server";
-import { getTrip, getTripPoints, getDays, saveDays, updateDay, updateTripPaceParams } from "@/lib/db";
+import { getTrip, getTripPoints, getDays, saveDays, updateDay, updateTripPaceParams, getWaypoints } from "@/lib/db";
 import {
   buildDays,
   attachStats,
   computeDayDate,
   findNearestPointIndex,
+  bivouacCutIndices,
 } from "@/modules/planning/dayBuilder";
 import { DEFAULT_PACE_PARAMS, validatePaceParams } from "@/modules/planning/paceModel";
 import type { ApiResponse, DayWithStats, PaceParams, TripDay } from "@/types";
@@ -60,7 +61,8 @@ export async function POST(
       );
     }
 
-    const built = buildDays(points, paceParams);
+    const waypoints = await getWaypoints(id);
+    const built = buildDays(points, paceParams, bivouacCutIndices(waypoints));
     const days: TripDay[] = built.map((d) => ({
       trip_id: id,
       day_index: d.day_index,

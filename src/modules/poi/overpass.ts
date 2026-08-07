@@ -3,7 +3,7 @@
  * Requêtes Overpass API — boulangeries, épiceries/supermarchés, points d'eau
  * dans un buffer autour d'une section de trace.
  */
-import type { Poi, PoiType } from "@/types";
+import type { Poi, PoiType, WaterSubtype } from "@/types";
 
 export const OVERPASS_ENDPOINT = "https://overpass-api.de/api/interpreter";
 export const DEFAULT_BUFFER_M = 200;
@@ -32,7 +32,16 @@ const POI_TAG_FILTERS: Record<PoiType, string[]> = {
   bakery: ['"shop"="bakery"'],
   supermarket: ['"shop"="supermarket"'],
   grocery: ['"shop"="convenience"', '"shop"="grocery"'],
-  water: ['"amenity"="drinking_water"', '"natural"="spring"', '"amenity"="fountain"'],
+  // Rivières/lacs sont presque toujours des ways/relations (pas des nodes) dans
+  // OSM, d'où le "nwr" (node/way/relation) plutôt que "node" ci-dessous.
+  water: [
+    '"amenity"="drinking_water"',
+    '"natural"="spring"',
+    '"amenity"="fountain"',
+    '"waterway"="river"',
+    '"waterway"="stream"',
+    '"natural"="water"',
+  ],
 };
 
 /** Construit une requête Overpass QL (out:json) pour un buffer autour d'une polyligne. */
@@ -50,10 +59,13 @@ export function buildOverpassQuery(points: LatLon[], bufferM: number = DEFAULT_B
 
   const clauses = Object.values(POI_TAG_FILTERS)
     .flat()
-    .map((tag) => `  node[${tag}]${around};`)
+    .map((tag) => `  nwr[${tag}]${around};`)
     .join("\n");
 
-  return `[out:json][timeout:25];\n(\n${clauses}\n);\nout body;`;
+  // "out center" ajoute des coordonnées center:{lat,lon} aux ways/relations
+  // (rivières, plans d'eau) en plus des lat/lon natifs des nodes (commerces,
+  // fontaines) — nécessaire pour positionner un marqueur sur n'importe lequel.
+  return `[out:json][timeout:25];\n(\n${clauses}\n);\nout center;`;
 }
 
 interface OverpassElement {
@@ -61,6 +73,8 @@ interface OverpassElement {
   id: number;
   lat?: number;
   lon?: number;
+  /** Coordonnée représentative pour les ways/relations (cf. "out center"). */
+  center?: { lat: number; lon: number };
   tags?: Record<string, string>;
 }
 
@@ -68,24 +82,47 @@ interface OverpassResponse {
   elements: OverpassElement[];
 }
 
-export type ParsedPoi = Pick<Poi, "type" | "name" | "lat" | "lon" | "osm_id">;
+export type ParsedPoi = Pick<Poi, "type" | "name" | "lat" | "lon" | "osm_id" | "water_subtype">;
 
 /** Détermine la catégorie POI à partir des tags OSM, ou null si non pertinent. */
 export function classifyElement(tags: Record<string, string>): PoiType | null {
   if (tags.shop === "bakery") return "bakery";
   if (tags.shop === "supermarket") return "supermarket";
   if (tags.shop === "convenience" || tags.shop === "grocery") return "grocery";
-  if (tags.amenity === "drinking_water" || tags.natural === "spring" || tags.amenity === "fountain") {
+  if (
+    tags.amenity === "drinking_water" ||
+    tags.natural === "spring" ||
+    tags.amenity === "fountain" ||
+    tags.waterway === "river" ||
+    tags.waterway === "stream" ||
+    tags.natural === "water"
+  ) {
     return "water";
   }
   return null;
+}
+
+/**
+ * Sous-type d'un point d'eau, pour indiquer au randonneur à quoi s'attendre
+ * (eau potable garantie vs source/rivière/lac à traiter avant consommation).
+ * "spring" (source naturelle) est rapproché de "fontaine" en l'absence d'un
+ * sous-type dédié plus pertinent pour l'usage rando.
+ */
+export function classifyWaterSubtype(tags: Record<string, string>): WaterSubtype {
+  if (tags.amenity === "drinking_water") return "eau_potable";
+  if (tags.amenity === "fountain" || tags.natural === "spring") return "fontaine";
+  if (tags.waterway === "river" || tags.waterway === "stream") return "riviere";
+  if (tags.natural === "water") return "lac";
+  return "indetermine";
 }
 
 /** Parse une réponse Overpass JSON en POI exploitables (sans trip_id/day_index). */
 export function parseOverpassResponse(data: OverpassResponse): ParsedPoi[] {
   const results: ParsedPoi[] = [];
   for (const el of data.elements ?? []) {
-    if (el.type !== "node" || typeof el.lat !== "number" || typeof el.lon !== "number" || !el.tags) {
+    const lat = el.lat ?? el.center?.lat;
+    const lon = el.lon ?? el.center?.lon;
+    if (typeof lat !== "number" || typeof lon !== "number" || !el.tags) {
       continue;
     }
     const type = classifyElement(el.tags);
@@ -93,9 +130,10 @@ export function parseOverpassResponse(data: OverpassResponse): ParsedPoi[] {
     results.push({
       type,
       name: el.tags.name ?? null,
-      lat: el.lat,
-      lon: el.lon,
+      lat,
+      lon,
       osm_id: el.id,
+      water_subtype: type === "water" ? classifyWaterSubtype(el.tags) : null,
     });
   }
   return results;

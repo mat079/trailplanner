@@ -2,9 +2,21 @@
  * modules/planning/dayBuilder.ts
  * Découpage automatique d'une trace en jours, à partir des points bruts.
  */
-import type { GpxPoint, PaceParams, TripDay, DayWithStats } from "@/types";
+import type { GpxPoint, PaceParams, TripDay, DayWithStats, Waypoint } from "@/types";
 import { estimateDurationHours, validatePaceParams } from "./paceModel";
 import { nearestIndexByDistance } from "@/lib/utils";
+
+/**
+ * Index des points de trace où une journée doit obligatoirement se terminer,
+ * dérivés des bivouacs placés manuellement (un bivouac est l'endroit où l'on
+ * dort — cf. buildDays). À passer à buildDays après tout ajout/suppression de
+ * bivouac, ou lors d'un recalcul, pour que le découpage les respecte toujours.
+ */
+export function bivouacCutIndices(waypoints: Waypoint[]): number[] {
+  return waypoints
+    .filter((w) => w.type === "bivouac" && w.point_index !== null)
+    .map((w) => w.point_index as number);
+}
 
 export interface BuiltDay {
   day_index: number;
@@ -20,24 +32,41 @@ export interface BuiltDay {
  * Découpe les points bruts en jours selon le budget horaire.
  * Garantit une progression d'au moins un point par jour (termine toujours),
  * même si un unique segment dépasse déjà le budget horaire à lui seul.
+ *
+ * `mandatoryCutIndices` (optionnel) : index de points sur lesquels une journée
+ * DOIT se terminer, quel que soit le budget horaire restant — typiquement les
+ * bivouacs placés manuellement par l'utilisateur (un bivouac est l'endroit où
+ * on dort, donc forcément une fin de journée). Une journée peut toujours se
+ * terminer plus tôt si le budget horaire est dépassé avant d'atteindre le
+ * prochain point obligatoire.
  */
-export function buildDays(points: GpxPoint[], params: PaceParams): BuiltDay[] {
+export function buildDays(
+  points: GpxPoint[],
+  params: PaceParams,
+  mandatoryCutIndices: number[] = []
+): BuiltDay[] {
   if (points.length < 2) {
     throw new Error("Trace insuffisante pour un découpage (moins de 2 points).");
   }
   validatePaceParams(params);
+
+  const sortedCuts = [...new Set(mandatoryCutIndices)]
+    .filter((i) => i > 0 && i < points.length - 1)
+    .sort((a, b) => a - b);
 
   const days: BuiltDay[] = [];
   let dayStart = 0;
   let dayIndex = 0;
 
   while (dayStart < points.length - 1) {
+    const cap = sortedCuts.find((i) => i > dayStart) ?? points.length - 1;
+
     let cursor = dayStart;
     let distM = 0;
     let elevGain = 0;
     let elevLoss = 0;
 
-    while (cursor < points.length - 1) {
+    while (cursor < cap) {
       const next = cursor + 1;
       const segDist = points[next].dist_cumul - points[cursor].dist_cumul;
       const segEleDelta = points[next].ele - points[cursor].ele;

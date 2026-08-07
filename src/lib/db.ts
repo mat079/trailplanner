@@ -605,10 +605,10 @@ export async function savePoi(
       const saved: Poi[] = [];
       for (const poi of poiList) {
         const res = await client.query<Poi>(
-          `INSERT INTO cached_poi (trip_id, day_index, type, name, lat, lon, osm_id)
-           VALUES ($1, $2, $3, $4, $5, $6, $7)
+          `INSERT INTO cached_poi (trip_id, day_index, type, water_subtype, name, lat, lon, osm_id)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
            RETURNING *`,
-          [tripId, dayIndex, poi.type, poi.name, poi.lat, poi.lon, poi.osm_id]
+          [tripId, dayIndex, poi.type, poi.water_subtype, poi.name, poi.lat, poi.lon, poi.osm_id]
         );
         saved.push(res.rows[0]);
       }

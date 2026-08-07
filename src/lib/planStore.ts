@@ -211,12 +211,22 @@ export const usePlanStore = create<PlanState>((set, get) => ({
     if (!tripId || !placingType) return;
     set({ error: null });
     try {
-      const data = await callApi<{ waypoint: Waypoint }>(`/api/trips/${tripId}/waypoints`, {
+      const data = await callApi<{ waypoint: Waypoint; days?: DayWithStats[] }>(`/api/trips/${tripId}/waypoints`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ type: placingType, lat, lon }),
       });
       set({ waypoints: [...waypoints, data.waypoint], placingType: null });
+      // Un bivouac fraîchement posé peut avoir redécoupé les journées (cf. API) :
+      // on réaligne le reste (POI/météo/nutrition/checklist), comme après un
+      // recalcul manuel du découpage.
+      if (data.days) {
+        set({ days: data.days });
+        void get().loadAllPoi();
+        void get().loadAllWeather();
+        void get().loadNutrition();
+        void get().ensureChecklistGenerated();
+      }
     } catch (e) {
       set({ error: e instanceof Error ? e.message : "Erreur lors de la création du point d'étape." });
     }
@@ -228,7 +238,17 @@ export const usePlanStore = create<PlanState>((set, get) => ({
     const previous = waypoints;
     set({ waypoints: waypoints.filter((w) => w.id !== waypointId), error: null });
     try {
-      await callApi<{ deleted: true }>(`/api/trips/${tripId}/waypoints/${waypointId}`, { method: "DELETE" });
+      const data = await callApi<{ deleted: true; days?: DayWithStats[] }>(
+        `/api/trips/${tripId}/waypoints/${waypointId}`,
+        { method: "DELETE" }
+      );
+      if (data.days) {
+        set({ days: data.days });
+        void get().loadAllPoi();
+        void get().loadAllWeather();
+        void get().loadNutrition();
+        void get().ensureChecklistGenerated();
+      }
     } catch (e) {
       set({ waypoints: previous, error: e instanceof Error ? e.message : "Erreur lors de la suppression." });
     }

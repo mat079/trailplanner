@@ -85,6 +85,7 @@ CREATE TABLE IF NOT EXISTS cached_poi (
   trip_id     UUID NOT NULL REFERENCES trips(id) ON DELETE CASCADE,
   day_index   INT,
   type        TEXT NOT NULL,   -- 'bakery' | 'grocery' | 'water' | 'supermarket'
+  water_subtype TEXT,          -- 'eau_potable' | 'fontaine' | 'riviere' | 'lac' | 'indetermine' (type='water' uniquement)
   name        TEXT,
   lat         DOUBLE PRECISION NOT NULL,
   lon         DOUBLE PRECISION NOT NULL,

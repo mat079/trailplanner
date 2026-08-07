@@ -6,7 +6,7 @@
  */
 import { usePlanStore } from "@/lib/planStore";
 import { Button } from "@/components/ui/button";
-import { poiStyle } from "@/lib/utils";
+import { poiStyle, waterSubtypeStyle } from "@/lib/utils";
 import { fr } from "@/i18n/fr";
 import { DEFAULT_BUFFER_M } from "@/modules/poi/overpass";
 import type { Poi } from "@/types";
@@ -24,8 +24,12 @@ function PoiSection({ dayIndex }: { dayIndex: number }) {
   // sur ce type d'activité — seul le besoin en glucides/gels compte (cf. NutritionPanel).
   const visiblePoi = isTrail ? poi.filter((p) => p.type === "water") : poi;
 
+  // Les points d'eau sont groupés par sous-type (fontaine, rivière, lac...) plutôt
+  // que par simple type "water" : le sous-type détermine si l'eau est garantie
+  // potable ou à traiter, une info importante à distinguer pour le randonneur.
+  const groupKey = (p: Poi) => (p.type === "water" ? `water:${p.water_subtype ?? "indetermine"}` : p.type);
   const grouped = visiblePoi.reduce<Record<string, Poi[]>>((acc, p) => {
-    (acc[p.type] ??= []).push(p);
+    (acc[groupKey(p)] ??= []).push(p);
     return acc;
   }, {});
 
@@ -72,14 +76,18 @@ function PoiSection({ dayIndex }: { dayIndex: number }) {
 
       {Object.entries(grouped).length > 0 && (
         <ul className="flex flex-col gap-1.5 mt-1">
-          {Object.entries(grouped).map(([type, items]) => {
-            const style = poiStyle(type as Poi["type"]);
+          {Object.entries(grouped).map(([key, items]) => {
+            const isWater = items[0].type === "water";
+            const style = isWater
+              ? waterSubtypeStyle(items[0].water_subtype ?? "indetermine")
+              : poiStyle(items[0].type);
+            const label = isWater ? fr.poi.waterSubtype[items[0].water_subtype ?? "indetermine"] : fr.poi[items[0].type];
             return (
-              <li key={type} className="flex items-start gap-2 text-xs">
+              <li key={key} className="flex items-start gap-2 text-xs">
                 <span aria-hidden="true">{style.icon}</span>
                 <span style={{ color: "var(--tp-text)" }}>
                   {items.length > 1 ? `${items.length} × ` : ""}
-                  {fr.poi[type as Poi["type"]]}
+                  {label}
                   {items[0].name ? ` — ${items[0].name}` : ""}
                 </span>
               </li>

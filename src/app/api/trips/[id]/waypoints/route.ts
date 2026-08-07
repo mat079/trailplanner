@@ -6,9 +6,11 @@
  * GET  : liste les points d'étape, ordonnés le long de la trace.
  */
 import { NextRequest, NextResponse } from "next/server";
-import { getTrip, getTripPoints, getDays, saveWaypoint, getWaypoints, setDayBivouac } from "@/lib/db";
+import { getTrip, getTripPoints, getDays, saveDays, saveWaypoint, getWaypoints, setDayBivouac } from "@/lib/db";
 import { snapToTrace, resolveDayIndex } from "@/modules/gpx/snap";
-import type { ApiResponse, Waypoint, WaypointType } from "@/types";
+import { buildDays, attachStats, computeDayDate, bivouacCutIndices } from "@/modules/planning/dayBuilder";
+import { DEFAULT_PACE_PARAMS } from "@/modules/planning/paceModel";
+import type { ApiResponse, DayWithStats, TripDay, Waypoint, WaypointType } from "@/types";
 
 const WAYPOINT_TYPES: WaypointType[] = ["bivouac", "ravitaillement", "checkpoint"];
 
@@ -26,7 +28,7 @@ function isValidCoord(lat: unknown, lon: unknown): lat is number {
 export async function POST(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
-): Promise<NextResponse<ApiResponse<{ waypoint: Waypoint }>>> {
+): Promise<NextResponse<ApiResponse<{ waypoint: Waypoint; days?: DayWithStats[] }>>> {
   try {
     const { id } = await params;
     const trip = await getTrip(id);
@@ -56,7 +58,35 @@ export async function POST(
     }
 
     const snapped = snapToTrace(points, lat, lon);
-    const days = await getDays(id);
+    let days = await getDays(id);
+
+    // Un bivouac est l'endroit où l'on dort : s'il y a déjà un découpage en
+    // jours, on le recalcule pour que ce nouveau bivouac devienne une fin de
+    // journée obligatoire (cf. buildDays). Sans découpage existant, on ne
+    // force pas un premier calcul à sa place — "Calculer le découpage" reste
+    // le point d'entrée pour ça.
+    let recomputedDays: DayWithStats[] | undefined;
+    if (type === "bivouac" && days.length > 0) {
+      const existingWaypoints = await getWaypoints(id);
+      const cuts = [...bivouacCutIndices(existingWaypoints), snapped.point_index];
+      const paceParams = trip.metadata.pace_params ?? DEFAULT_PACE_PARAMS;
+      const built = buildDays(points, paceParams, cuts);
+      const rebuilt: TripDay[] = built.map((d) => ({
+        trip_id: id,
+        day_index: d.day_index,
+        start_point_index: d.start_point_index,
+        end_point_index: d.end_point_index,
+        label: null,
+        bivouac_lat: null,
+        bivouac_lon: null,
+        bivouac_ele: null,
+        date: computeDayDate(trip.start_date, d.day_index),
+        nutrition_override_g_h: null,
+      }));
+      days = await saveDays(id, rebuilt);
+      recomputedDays = attachStats(days, points, paceParams);
+    }
+
     const dayIndex = resolveDayIndex(days, snapped.point_index);
 
     const waypoint = await saveWaypoint(id, {
@@ -80,7 +110,7 @@ export async function POST(
       }
     }
 
-    return NextResponse.json({ ok: true, data: { waypoint } });
+    return NextResponse.json({ ok: true, data: { waypoint, days: recomputedDays } });
   } catch (err) {
     console.error("[api/trips/[id]/waypoints][POST] Error:", err);
     return NextResponse.json(
